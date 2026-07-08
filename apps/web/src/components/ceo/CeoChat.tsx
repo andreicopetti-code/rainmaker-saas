@@ -447,6 +447,9 @@ function CommandBar({
     { label: 'Potencial',  value: resumo.receitaRealAberta > 0 ? fmtBRL(resumo.receitaRealAberta) : '—', cls: 'neutral' },
     { label: 'Conversão',  value: resumo.taxaConversao,                                            cls: conv >= 30 ? 'green' : 'red' },
     ...(resumo.semValorDefinido > 0 ? [{ label: 'Sem valor', value: resumo.semValorDefinido, cls: 'amber' }] : []),
+    ...(resumo.valorPosFechamento > 0
+      ? [{ label: 'Pós-fech.', value: resumo.valorPosFechamento, cls: 'neutral' }]
+      : []),
   ];
 
   const healthCls = health.score >= 80 ? 'saudavel' : health.score >= 50 ? 'atencao' : 'critico';

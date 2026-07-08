@@ -2,6 +2,7 @@
 
 import { TIERS } from '@ceo-brain/shared';
 import { formatBRL } from '@/lib/funnel/stages';
+import { isValueDeferred } from '@/lib/funnel/value-deferred';
 import { formatApptCardDate } from '@/lib/appointments/datetime';
 import { getApptDisplay, apptTipoStyle } from '@/lib/appointments/display';
 import type { OpportunityItem } from './types';
@@ -43,7 +44,10 @@ export function OpportunityCard({
   const tier = opportunity.custom_fields?.tier;
   const tierInfo = tier ? TIERS.find((t) => t.id === tier) : null;
   const hasValue = (opportunity.value ?? 0) > 0;
-  const leftColor = isWon ? '#16A34A' : tierInfo?.color ?? (hasValue ? '#2563EB' : '#E2E8F0');
+  const valueDeferred = isValueDeferred(opportunity.custom_fields) && !hasValue;
+  const leftColor = isWon
+    ? '#16A34A'
+    : tierInfo?.color ?? (hasValue ? '#2563EB' : valueDeferred ? '#7C3AED' : '#E2E8F0');
 
   const displayName = opportunity.contact?.company || opportunity.contact?.name || opportunity.title;
   const contactPerson = opportunity.contact?.custom_fields?.contact_person;
@@ -97,10 +101,17 @@ export function OpportunityCard({
       <div className="card-meta">
         <div className="card-meta-left">
           <span
-            className={`card-value${hasValue ? '' : ' card-value--empty'}`}
-            style={hasValue ? { color: isWon ? 'var(--green)' : 'var(--blue-dark)' } : undefined}
+            className={`card-value${hasValue || valueDeferred ? '' : ' card-value--empty'}`}
+            style={
+              hasValue
+                ? { color: isWon ? 'var(--green)' : 'var(--blue-dark)' }
+                : valueDeferred
+                  ? { color: '#7C3AED', fontWeight: 600, fontSize: 11 }
+                  : undefined
+            }
+            title={valueDeferred ? 'Valor será conhecido no fechamento' : undefined}
           >
-            {hasValue ? formatBRL(opportunity.value!) : '—'}
+            {hasValue ? formatBRL(opportunity.value!) : valueDeferred ? 'Pós-fechamento' : '—'}
           </span>
           {tierInfo ? (
             <span className={`tier-badge tier-${tier} card-tier`}>{tierInfo.label}</span>

@@ -247,6 +247,7 @@ export function OpportunityModal({
         value: opportunity.value != null ? String(opportunity.value) : '',
         description: opportunity.description ?? '',
         tier: cf?.tier,
+        value_deferred: !!cf?.value_deferred,
         probability: opportunity.probability ?? undefined,
         expected_close_date: opportunity.expected_close_date ?? '',
         lost_reason: opportunity.lost_reason ?? '',
@@ -314,6 +315,13 @@ export function OpportunityModal({
     if (isLost && !form.lost_reason?.trim()) {
       setError('Informe o motivo da perda antes de salvar.');
       return;
+    }
+    if (isWon) {
+      const parsed = form.value ? parseFloat(form.value.replace(',', '.')) : NaN;
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setError('Informe o valor contratado ao marcar o negócio como ganho.');
+        return;
+      }
     }
     startTransition(async () => {
       try {
@@ -592,10 +600,45 @@ export function OpportunityModal({
                   min={0}
                   step={0.01}
                   className="form-input"
-                  placeholder="Ex: 150000"
-                  value={form.value}
-                  onChange={(e) => set({ value: e.target.value })}
+                  placeholder={form.value_deferred && !isWon ? 'Definido no fechamento' : 'Ex: 150000'}
+                  value={form.value_deferred && !isWon ? '' : form.value}
+                  disabled={!!form.value_deferred && !isWon}
+                  onChange={(e) => set({ value: e.target.value, value_deferred: false })}
                 />
+                {!isWon ? (
+                  <label
+                    className="form-check"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      marginTop: 10,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      color: 'var(--text2)',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!form.value_deferred}
+                      onChange={(e) =>
+                        set({
+                          value_deferred: e.target.checked,
+                          value: e.target.checked ? '' : form.value,
+                        })
+                      }
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      Valor será conhecido apenas no fechamento
+                      <span className="form-hint" style={{ display: 'block', marginTop: 2 }}>
+                        Use em negócios por êxito, recuperação de créditos ou quando o preço só existe após a entrega.
+                        A IA não tratará isso como cadastro incompleto.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
               </div>
 
               {/* Classificação (porte / prioridade) */}

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { FunnelStageConfig } from '@/lib/funnel/stage-config';
 import { resolveStageId, stageLabel } from '@/lib/funnel/stage-config';
-import { isLostStage } from '@/lib/ceo/stage-utils';
+import { isLostStage, isWonStage } from '@/lib/ceo/stage-utils';
 import type { OpportunityFormData } from '@/components/board/types';
 import { getOrgPlanContext } from '@/lib/billing/org-plan-limits';
 import { assertCanModifyOpportunity, resolveDealOwnerId } from '@/lib/org/deal-access';
@@ -101,7 +101,11 @@ export async function createOpportunity(
     );
   }
 
-  const value = data.value ? parseFloat(data.value.replace(',', '.')) : null;
+  const valueDeferred = !!data.value_deferred && !isWonStage(data.stage, stageConfig);
+  const value = !valueDeferred && data.value ? parseFloat(data.value.replace(',', '.')) : null;
+  if (isWonStage(data.stage, stageConfig) && !(Number.isFinite(value) && (value ?? 0) > 0)) {
+    throw new Error('Informe o valor contratado ao marcar o negócio como ganho.');
+  }
   const contactId = await upsertContact(supabase, org.organization_id, user.id, data);
 
   const { error } = await supabase.from('opportunities').insert({
@@ -120,6 +124,7 @@ export async function createOpportunity(
     custom_fields: {
       tier: data.tier ?? null,
       lead_source: data.lead_source ?? null,
+      value_deferred: valueDeferred || null,
     },
   });
 
@@ -147,7 +152,11 @@ export async function updateOpportunity(
     .single();
   if (fetchErr || !existing) throw new Error('Deal não encontrado');
 
-  const value = data.value ? parseFloat(data.value.replace(',', '.')) : null;
+  const valueDeferred = !!data.value_deferred && !isWonStage(data.stage, stageConfig);
+  const value = !valueDeferred && data.value ? parseFloat(data.value.replace(',', '.')) : null;
+  if (isWonStage(data.stage, stageConfig) && !(Number.isFinite(value) && (value ?? 0) > 0)) {
+    throw new Error('Informe o valor contratado ao marcar o negócio como ganho.');
+  }
   const stageChanged = existing.stage !== data.stage;
   const movingToLost = isLostStage(data.stage, stageConfig);
   if (movingToLost && !data.lost_reason?.trim()) {
@@ -171,6 +180,7 @@ export async function updateOpportunity(
       custom_fields: {
         tier: data.tier ?? null,
         lead_source: data.lead_source ?? null,
+        value_deferred: valueDeferred || null,
       },
       updated_at: new Date().toISOString(),
     })

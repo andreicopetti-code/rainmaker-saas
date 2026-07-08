@@ -26,6 +26,8 @@ export type ContactData = {
 export type OpportunityCustomFields = {
   tier?: 'P' | 'M' | 'G' | 'E';
   lead_source?: string;
+  /** Valor só será conhecido após fechamento / execução do trabalho. */
+  value_deferred?: boolean;
 };
 
 export type OpportunityItem = {
@@ -67,6 +69,8 @@ export type OpportunityFormData = {
   value: string;
   description: string;
   tier?: 'P' | 'M' | 'G' | 'E';
+  /** Quando true, valor em branco é intencional (não é falha de cadastro). */
+  value_deferred?: boolean;
   probability?: number;
   expected_close_date?: string;
   lost_reason?: string;

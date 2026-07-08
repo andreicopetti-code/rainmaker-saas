@@ -1,6 +1,7 @@
 import { TIERS } from '@ceo-brain/shared';
 import type { FunnelStageConfig } from '@/lib/funnel/stage-config';
 import { formatApptCompact, scheduledAtToDate, APP_TIMEZONE } from '@/lib/appointments/datetime';
+import { isMissingActionableValue, isValueDeferred } from '@/lib/funnel/value-deferred';
 import { buildPlaybookSection, getStagePlaybook } from './playbook';
 import {
   activeStageIndex,
@@ -132,6 +133,8 @@ function buildCompactDealLine(o: OppRow, stageConfig: FunnelStageConfig[]): stri
 
   if ((o.value ?? 0) > 0) {
     parts.push(`R$ ${(o.value!).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`);
+  } else if (isValueDeferred(o.custom_fields)) {
+    parts.push('valor pós-fechamento');
   } else if (isActiveStage(o.stage, stageConfig)) {
     parts.push('⚠ sem valor');
   }
@@ -265,7 +268,9 @@ function buildTopClosingCandidates(
       .map((c, i) => {
         const valor = c.valor
           ? `R$ ${c.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-          : 'sem valor cadastrado';
+          : c.valorDeferred
+            ? 'valor pós-fechamento'
+            : 'sem valor cadastrado';
         return `${i + 1}. ${c.nome} | ${c.tier} | ${c.etapa} | ${valor}`;
       })
       .join('\n');
@@ -291,13 +296,14 @@ function buildTopClosingCandidates(
       const nome = getNomePrimario(o);
       const etapa = getStageLabel(o.stage, stageConfig);
       const tier = getTier(getTierId(o))?.label ?? 'Sem classificação';
-      const bloqueios: string[] = [];
-      if (!(o.value ?? 0)) bloqueios.push('sem valor');
+      if (isMissingActionableValue(o.value, o.custom_fields)) bloqueios.push('sem valor');
       if (!hasFutureAppt(o)) bloqueios.push('sem compromisso');
       if (!o.description?.trim() && (TIER_ORDER[getTierId(o) ?? ''] ?? 99) <= 1) bloqueios.push('sem nota');
       const pb = getStagePlaybook(o.stage, stageConfig);
       const bloqueioStr = bloqueios.length ? ` | bloqueio: ${bloqueios.join(', ')}` : '';
-      return `${i + 1}. ${nome} | ${tier} | ${etapa}${bloqueioStr} → ${pb.proximoMovimento}`;
+      const valorNota =
+        !(o.value ?? 0) && isValueDeferred(o.custom_fields) ? ' | valor pós-fechamento' : '';
+      return `${i + 1}. ${nome} | ${tier} | ${etapa}${valorNota}${bloqueioStr} → ${pb.proximoMovimento}`;
     })
     .join('\n');
 }
@@ -332,7 +338,9 @@ export type DataQualityAlerts = {
 export function buildDataQualityAlerts(opps: OppRow[], stageConfig: FunnelStageConfig[]): DataQualityAlerts {
   const active = opps.filter((o) => isActiveStage(o.stage, stageConfig));
   return {
-    semValor: active.filter((o) => !(o.value ?? 0)).map(getNomePrimario),
+    semValor: active
+      .filter((o) => isMissingActionableValue(o.value, o.custom_fields))
+      .map(getNomePrimario),
     semClassificacao: active.filter((o) => !getTierId(o)).map(getNomePrimario),
     semCompromisso: active.filter((o) => !hasFutureAppt(o)).map(getNomePrimario),
     semNota: active
@@ -381,7 +389,12 @@ export function buildFunnelContext(opps: OppRow[], stageConfig: FunnelStageConfi
   const receitaConfirmada = ganho.reduce((s, o) => s + (o.value ?? 0), 0);
   const receitaRealAberta = active.reduce((s, o) => s + (o.value ?? 0), 0);
   const dealsComValorReal = active.filter((o) => (o.value ?? 0) > 0).length;
-  const semValorDefinido = active.filter((o) => !(o.value ?? 0)).length;
+  const valorPosFechamento = active.filter(
+    (o) => !(o.value ?? 0) && isValueDeferred(o.custom_fields),
+  ).length;
+  const semValorDefinido = active.filter((o) =>
+    isMissingActionableValue(o.value, o.custom_fields),
+  ).length;
   const semTierDefinido = active.filter((o) => !getTierId(o)).length;
   const semCompromisso = active.filter((o) => !hasFutureAppt(o)).length;
 
@@ -433,6 +446,7 @@ export function buildFunnelContext(opps: OppRow[], stageConfig: FunnelStageConfi
       receitaConfirmada,
       receitaRealAberta,
       dealsComValorReal,
+      valorPosFechamento,
       semValorDefinido,
       semTierDefinido,
       semCompromisso,
@@ -474,7 +488,14 @@ export function classifyDeals(opps: OppRow[], stageConfig: FunnelStageConfig[]) 
   const parados = buildDealsParados(opps, stageConfig, 7);
   const paradoMap = new Map(parados.map((p) => [p.nome, p.diasSemAtividade]));
 
-  type DealRef = { nome: string; etapa: string; tier: string; valor: number | null; nota: string };
+  type DealRef = {
+    nome: string;
+    etapa: string;
+    tier: string;
+    valor: number | null;
+    valorDeferred?: boolean;
+    nota: string;
+  };
   const result: { fechar: DealRef[]; risco: DealRef[]; cultivar: DealRef[]; descartar: DealRef[] } = {
     fechar: [], risco: [], cultivar: [], descartar: [],
   };
@@ -495,6 +516,7 @@ export function classifyDeals(opps: OppRow[], stageConfig: FunnelStageConfig[]) 
       etapa: getStageLabel(o.stage, stageConfig),
       tier: getTier(getTierId(o))?.label ?? 'Não definido',
       valor: (o.value ?? 0) > 0 ? o.value : null,
+      valorDeferred: !(o.value ?? 0) && isValueDeferred(o.custom_fields),
       nota: o.description ?? '',
     };
 
@@ -532,7 +554,9 @@ export function calcHealthScore(opps: OppRow[], context: FunnelContext, stageCon
   const scoreConversao = Math.round(Math.min(winRate * 50, 20));
 
   const avancadosSemValor = active.filter(
-    (o) => isAdvancedStage(o.stage, stageConfig) && !(o.value ?? 0),
+    (o) =>
+      isAdvancedStage(o.stage, stageConfig) &&
+      isMissingActionableValue(o.value, o.custom_fields),
   ).length;
   const scoreDados = Math.max(
     0,
@@ -609,6 +633,7 @@ REGRAS DE LINGUAGEM — OBRIGATÓRIAS
 • Se houver Nota no negócio, USE-A para personalizar a ação
 • Se houver compromisso agendado, leve em conta na análise
 • Negócios marcados com ⚠ sem valor / sem compromisso / sem nota exigem ação de cadastro antes de estratégia
+• Negócios com "valor pós-fechamento" NÃO estão incompletos: o valor só será conhecido no fechamento/resultado. Não peça cadastro de valor nesses casos; priorize próxima ação comercial.
 • PROIBIDO inventar cargos ou equipes ("Gerente de Negócios", "Equipe de Dados") — use "você" ou omita responsável
 • Negócios em Negociação/Proposta/Fechamento SEM compromisso = risco de esfriamento, NÃO "nenhum fechamento possível"
 
