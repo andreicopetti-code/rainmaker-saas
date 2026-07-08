@@ -136,10 +136,11 @@
 
 .home-lead {
   margin: 18px auto 0;
-  max-width: 640px;
-  font-size: 17px;
-  line-height: 1.65;
+  max-width: 760px;
+  font-size: 16px;
+  line-height: 1.6;
   color: #475569;
+  text-wrap: balance;
 }
 
 .home-hero-actions {

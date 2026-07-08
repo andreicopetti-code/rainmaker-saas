@@ -83,11 +83,7 @@ export default function Home() {
         <section className="home-hero">
           <span className="home-eyebrow">{HOME_HERO.eyebrow}</span>
           <h1>{HOME_HERO.title}</h1>
-          <p className="home-lead">
-            {HOME_HERO.subtitle[0]}
-            <br />
-            {HOME_HERO.subtitle[1]}
-          </p>
+          <p className="home-lead">{HOME_HERO.subtitle}</p>
           <div className="home-hero-actions">
             <Link href={HOME_HERO.primaryHref} className="home-btn home-btn--primary home-btn--lg">
               {HOME_HERO.primaryCta}
