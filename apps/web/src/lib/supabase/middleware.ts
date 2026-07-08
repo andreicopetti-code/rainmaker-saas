@@ -1,9 +1,49 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getBillingAccessForUser } from '@/lib/billing/check-access';
+import {
+  BILLING_ACCESS_COOKIE,
+  billingAccessCookieOptions,
+  buildBillingAccessCookieValue,
+  readBillingAccessCache,
+} from '@/lib/billing/access-cache';
+
+function copyCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value);
+  });
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register');
+
+  const isPublicAppRoute =
+    pathname === '/' ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/precos') ||
+    pathname.startsWith('/convite');
+
+  const isBillingRoute = pathname.startsWith('/billing');
+  const isInviteRoute = pathname.startsWith('/convite');
+  const isStripeWebhook = pathname.startsWith('/api/stripe/webhook');
+
+  const isProtected =
+    !isPublicAppRoute &&
+    !isAuthRoute &&
+    !isStripeWebhook &&
+    !pathname.startsWith('/_next') &&
+    !pathname.includes('.');
+
+  // Rotas públicas sem gate de auth: sem round-trip de sessão.
+  if (!isProtected && !isAuthRoute && pathname !== '/') {
+    return NextResponse.next({ request });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,36 +73,13 @@ export async function updateSession(request: NextRequest) {
     // Supabase indisponível — deixa a página carregar; rotas protegidas redirecionam no server component
   }
 
-  const pathname = request.nextUrl.pathname;
-
-  const isAuthRoute =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register');
-
-  const isPublicAppRoute =
-    pathname === '/' ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/precos') ||
-    pathname.startsWith('/convite');
-
-  const isBillingRoute = pathname.startsWith('/billing');
-
-  const isInviteRoute = pathname.startsWith('/convite');
-
-  const isStripeWebhook = pathname.startsWith('/api/stripe/webhook');
-
-  const isProtected =
-    !isPublicAppRoute &&
-    !isAuthRoute &&
-    !isStripeWebhook &&
-    !pathname.startsWith('/_next') &&
-    !pathname.includes('.');
-
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirect', request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    copyCookies(supabaseResponse, res);
+    return res;
   }
 
   if (user && isAuthRoute) {
@@ -70,25 +87,64 @@ export async function updateSession(request: NextRequest) {
     const redirect = url.searchParams.get('redirect');
     url.pathname = redirect && redirect.startsWith('/') ? redirect : '/funil';
     url.searchParams.delete('redirect');
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    copyCookies(supabaseResponse, res);
+    return res;
   }
 
   if (user && pathname === '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/funil';
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    copyCookies(supabaseResponse, res);
+    return res;
+  }
+
+  // Em /billing, limpa o cache para revalidar após checkout/cancelamento.
+  if (user && isBillingRoute) {
+    supabaseResponse.cookies.set(BILLING_ACCESS_COOKIE, '', {
+      ...billingAccessCookieOptions(0),
+      maxAge: 0,
+    });
   }
 
   if (user && isProtected && !isBillingRoute && !isInviteRoute) {
-    try {
-      const billing = await getBillingAccessForUser(supabase, user.id);
-      if (!billing.hasAccess) {
-        const url = request.nextUrl.clone();
-        url.pathname = '/billing';
-        return NextResponse.redirect(url);
+    const cached = readBillingAccessCache(
+      request.cookies.get(BILLING_ACCESS_COOKIE)?.value,
+      user.id,
+    );
+
+    // Só reutiliza cache positivo: bloqueio sempre revalida (pós-pagamento).
+    let hasAccess = cached?.hasAccess === true ? true : undefined;
+
+    if (hasAccess === undefined) {
+      try {
+        const billing = await getBillingAccessForUser(supabase, user.id);
+        hasAccess = billing.hasAccess;
+        if (billing.hasAccess) {
+          supabaseResponse.cookies.set(
+            BILLING_ACCESS_COOKIE,
+            buildBillingAccessCookieValue(user.id, true),
+            billingAccessCookieOptions(),
+          );
+        } else {
+          supabaseResponse.cookies.set(BILLING_ACCESS_COOKIE, '', {
+            ...billingAccessCookieOptions(0),
+            maxAge: 0,
+          });
+        }
+      } catch {
+        // Falha na checagem — não bloqueia o app
+        hasAccess = true;
       }
-    } catch {
-      // Falha na checagem — não bloqueia o app
+    }
+
+    if (hasAccess === false) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/billing';
+      const res = NextResponse.redirect(url);
+      copyCookies(supabaseResponse, res);
+      return res;
     }
   }
 

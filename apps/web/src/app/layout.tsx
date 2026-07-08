@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
-import { getCurrentUserProfile } from '@/app/auth/actions';
 import { AppShell } from '@/components/AppShell';
 import './globals.css';
 
@@ -15,13 +14,9 @@ export const metadata: Metadata = {
   description: 'Copiloto executivo comercial',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const initialUserProfile = await getCurrentUserProfile();
-
   return (
     <html lang="pt-BR" className={dmSans.variable} suppressHydrationWarning>
       <head>
@@ -32,7 +27,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <AppShell initialUserProfile={initialUserProfile}>{children}</AppShell>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

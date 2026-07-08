@@ -1,5 +1,6 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import {
   evaluateBillingAccess,
@@ -12,6 +13,7 @@ import {
   isStripeConfigured,
   resolveMonthlyPriceId,
 } from '@/lib/billing/stripe';
+import { BILLING_ACCESS_COOKIE } from '@/lib/billing/access-cache';
 import { syncFromCheckoutSession } from '@/lib/billing/checkout-sync';
 import {
   formatFichaLimit,
@@ -286,6 +288,8 @@ export async function confirmCheckoutSession(
     }
 
     await syncFromCheckoutSession(sessionId);
+    const jar = await cookies();
+    jar.delete(BILLING_ACCESS_COOKIE);
     const org = await loadOrganization(membership.organization_id);
     return { status: org.subscription_status };
   } catch (err) {

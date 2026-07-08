@@ -2,7 +2,6 @@
 
 import '@/app/billing/billing.css';
 import { usePathname } from 'next/navigation';
-import type { UserProfile } from '@/app/auth/actions';
 import { AppHeader } from '@/components/AppHeader';
 import { SubscriptionBanner } from '@/components/billing/SubscriptionBanner';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -17,13 +16,7 @@ function isPublicRoute(pathname: string): boolean {
   );
 }
 
-export function AppShell({
-  children,
-  initialUserProfile = null,
-}: {
-  children: React.ReactNode;
-  initialUserProfile?: UserProfile | null;
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   if (isPublicRoute(pathname)) {
@@ -34,7 +27,7 @@ export function AppShell({
     <ThemeProvider>
       <FunnelChromeProvider>
         <div className="app-shell">
-          <AppHeader initialUserProfile={initialUserProfile} />
+          <AppHeader />
           {!pathname.startsWith('/billing') && <SubscriptionBanner />}
           <div className="app-shell-content">{children}</div>
         </div>

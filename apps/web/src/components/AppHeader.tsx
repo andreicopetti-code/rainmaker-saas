@@ -5,12 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { getUnreadEmailCount } from '@/app/emails/actions';
-import type { UserProfile } from '@/app/auth/actions';
 import { FunnelHeaderTools } from '@/components/funnel/FunnelHeaderTools';
 import { UserMenu } from '@/components/UserMenu';
 import { useTheme } from '@/components/ThemeProvider';
 
-export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: UserProfile | null }) {
+export function AppHeader() {
   const pathname = usePathname();
   const isFunil = pathname.startsWith('/funil');
   const isDashboard = pathname.startsWith('/dashboard');
@@ -28,26 +27,20 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
       const count = await getUnreadEmailCount();
       setUnreadEmails(count);
     });
-  }, [pathname]);
+    // Contagem no mount e ao entrar/sair do módulo de e-mails — evita RPC a cada troca de rota.
+  }, [isEmails]);
 
   return (
     <header className="header">
-      {/* Logo */}
-      <Link href="/funil" className="logo">
+      <Link href="/funil" className="logo" prefetch>
         <div className="logo-icon">
           <Image src="/logo.png" alt="CEO Brain" width={34} height={34} priority />
         </div>
         <span className="logo-text">CEO <span>Brain</span></span>
       </Link>
 
-      {/* Nav */}
       <nav className="header-nav" role="navigation" aria-label="Navegação principal">
-        <Link
-          href="/funil"
-          className={`btn-nav${isFunil ? ' active' : ''}`}
-          aria-label="Funil de vendas"
-        >
-          {/* funnel icon */}
+        <Link href="/funil" className={`btn-nav${isFunil ? ' active' : ''}`} aria-label="Funil de vendas" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <rect x="2" y="3" width="20" height="3" rx="1" />
             <rect x="4" y="8" width="15" height="3" rx="1" />
@@ -57,22 +50,14 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
           <span>Funil</span>
         </Link>
 
-        <Link
-          href="/agenda"
-          className={`btn-nav${isAgenda ? ' active' : ''}`}
-          aria-label="Agenda"
-        >
+        <Link href="/agenda" className={`btn-nav${isAgenda ? ' active' : ''}`} aria-label="Agenda" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.9 3 3 3.9 3 5v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H5V9h14v12zM5 7V5h14v2H5zm2 4h5v5H7z"/>
           </svg>
           <span>Agenda</span>
         </Link>
 
-        <Link
-          href="/dashboard"
-          className={`btn-nav${isDashboard ? ' active' : ''}`}
-          aria-label="Dashboard"
-        >
+        <Link href="/dashboard" className={`btn-nav${isDashboard ? ' active' : ''}`} aria-label="Dashboard" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <rect x="2" y="16" width="4" height="6" rx="1" />
             <rect x="8" y="11" width="4" height="11" rx="1" />
@@ -82,11 +67,7 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
           <span>Dashboard</span>
         </Link>
 
-        <Link
-          href="/contatos"
-          className={`btn-nav${isContatos ? ' active' : ''}`}
-          aria-label="Contatos"
-        >
+        <Link href="/contatos" className={`btn-nav${isContatos ? ' active' : ''}`} aria-label="Contatos" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
           </svg>
@@ -98,6 +79,7 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
           className={`btn-nav${isEmails ? ' active' : ''}`}
           aria-label="E-mails"
           style={{ position: 'relative' }}
+          prefetch
         >
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
@@ -127,22 +109,14 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
           ) : null}
         </Link>
 
-        <Link
-          href="/empresas"
-          className={`btn-nav${isEmpresas ? ' active' : ''}`}
-          aria-label="Consulta CNPJ"
-        >
+        <Link href="/empresas" className={`btn-nav${isEmpresas ? ' active' : ''}`} aria-label="Consulta CNPJ" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
           </svg>
           <span>Empresas</span>
         </Link>
 
-        <Link
-          href="/ceo"
-          className={`btn-nav btn-nav-ceo${isCeo ? ' active' : ''}`}
-          aria-label="CEO Brain IA"
-        >
+        <Link href="/ceo" className={`btn-nav btn-nav-ceo${isCeo ? ' active' : ''}`} aria-label="CEO Brain IA" prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" />
           </svg>
@@ -152,7 +126,6 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
 
       <FunnelHeaderTools />
 
-      {/* Actions */}
       <div className={`header-actions${isFunil ? ' header-actions--with-funnel' : ''}`}>
         <button
           type="button"
@@ -171,7 +144,7 @@ export function AppHeader({ initialUserProfile = null }: { initialUserProfile?: 
             </svg>
           )}
         </button>
-        <UserMenu initialProfile={initialUserProfile} />
+        <UserMenu />
       </div>
     </header>
   );
