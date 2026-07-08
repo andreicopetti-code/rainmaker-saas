@@ -1,0 +1,70 @@
+# Arquitetura Recomendada de Hospedagem – CEO Brain
+Objetivo
+Apresentar uma arquitetura escalável e de baixo custo para hospedar o SaaS CEO Brain, separando os dados operacionais dos clientes da base de inteligência comercial com aproximadamente 75 milhões de empresas.
+## 1. Princípio de Arquitetura
+Os dados dos clientes (CRM, usuários, agenda, oportunidades, análises de IA e configurações) devem ficar em um banco transacional separado da base das 75 milhões de empresas. Essa separação melhora desempenho, reduz custos e facilita a escalabilidade.
+## 2. Arquitetura Sugerida
+Front-end (Next.js/Vercel)
+        │
+API (Supabase)
+        ├── Banco SaaS (PostgreSQL)
+        │      • Usuários
+        │      • Organizações
+        │      • CRM
+        │      • Agenda
+        │      • Pipeline
+        │      • IA
+        │
+        └── Banco Empresas (PostgreSQL dedicado)
+               • 75 milhões de empresas
+               • CNAE
+               • Sócios
+               • Telefones
+               • Endereços
+               • Dados cadastrais
+## 3. Banco SaaS
+Recomendação: Supabase PostgreSQL.
+Volume esperado: de dezenas de MB até cerca de 30 GB mesmo com milhares de clientes.
+Ideal para autenticação, regras de negócio e dados transacionais.
+## 4. Banco de Empresas
+Recomendação: PostgreSQL dedicado.
+A base poderá ocupar centenas de GB ou mais de 1 TB, dependendo das informações armazenadas.
+Não é recomendável mantê-la no mesmo banco do SaaS.
+## 5. Alternativas de Infraestrutura
+Alternativa | Vantagens | Observações
+Hetzner | Melhor custo-benefício | Excelente para PostgreSQL dedicado.
+DigitalOcean | Boa estabilidade | Escala facilmente.
+Contabo | Muito econômico | Desempenho menos consistente.
+AWS RDS | Alta disponibilidade | Custo elevado para início.
+Azure SQL | Corporativo | Mais caro.
+Google Cloud SQL | Excelente integração | Custo elevado.
+
+## 6. Busca de Alta Performance
+Adicionar Elasticsearch para indexar a base empresarial e permitir pesquisas rápidas por nome, CNAE, cidade, telefone e outros atributos.
+Utilizar Redis para cache das consultas mais frequentes.
+## 7. Armazenamento de Arquivos
+Não armazenar PDFs e documentos no banco de dados.
+Utilizar Cloudflare R2, Backblaze B2 ou Amazon S3 e manter apenas os metadados no PostgreSQL.
+## 8. Inteligência Artificial
+As análises produzidas pela IA podem permanecer no PostgreSQL.
+Caso futuramente seja implementado RAG, recomenda-se pgvector inicialmente.
+## 9. Estimativa de Custos
+MVP:
+• Supabase Pro: aproximadamente US$ 25/mês
+• Servidor PostgreSQL dedicado (Hetzner/Contabo): €40–70/mês
+• Cloudflare R2: custo muito baixo no início
+
+Estimativa total: aproximadamente R$ 450 a R$ 700 por mês.
+
+Escala:
+Com dezenas de milhares de usuários e milhões de consultas mensais, o custo pode evoluir para R$ 2.000 a R$ 5.000 por mês mantendo excelente desempenho.
+## 10. Recomendação Final
+Arquitetura recomendada:
+
+• Supabase para autenticação, CRM, agenda, pipeline e dados operacionais.
+• PostgreSQL dedicado para a base de 75 milhões de empresas.
+• Elasticsearch para pesquisas de alta velocidade.
+• Redis para cache.
+• Cloudflare R2 (ou equivalente) para armazenamento de documentos.
+
+Essa arquitetura oferece excelente relação custo-benefício, escalabilidade e manutenção simplificada, permitindo crescimento sem necessidade de reescrever a plataforma.

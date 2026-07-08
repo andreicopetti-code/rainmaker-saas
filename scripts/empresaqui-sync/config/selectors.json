@@ -1,0 +1,27 @@
+{
+  "baseUrl": "https://www.empresaqui.com.br",
+  "loginPath": "/acesso/login",
+  "searchPath": "/acesso/empresas",
+  "appHomePaths": ["/acesso", "/acesso/inicio", "/inicio", "/home", "/painel"],
+  "timeouts": {
+    "navigationMs": 120000,
+    "exportMs": 300000,
+    "betweenExportsMs": 45000
+  },
+  "selectors": {
+    "emailInput": "input[placeholder='Email'], input[type='email']",
+    "passwordInput": "input[placeholder='Password'], input[type='password']",
+    "loginButton": "button:has-text('Acessar')",
+    "searchMenuLink": "a:has-text('Pesquisa por Filtros'), a:has-text('Pesquisa por filtros'), nav a:has-text('Pesquisa')",
+    "ufSelect": "select[name*='estado' i], select[name*='uf' i], [data-filter='uf'], #uf",
+    "municipioInput": "input[placeholder*='municip' i], input[name*='municip' i], [data-filter='municipio']",
+    "situacaoCheckbox": "input[type='checkbox']:near(:text('ATIVA')), label:has-text('ATIVA') input",
+    "searchButton": "button:has-text('Pesquisar'), button:has-text('PESQUISAR')",
+    "resultCount": "[data-result-count], .result-count, .total-empresas",
+    "exportButton": "button:has-text('EXPORTAR'), button:has-text('Exportar')",
+    "exportCsvPart": "text=/BAIXAR CSV DE \\d+/i",
+    "exportCsvExcelOption": "text=/CSV EXCEL.*PADRÃO/i, text=/BAIXAR CSV DE 0 A/i",
+    "downloadConfirm": "button:has-text('Baixar'), button:has-text('BAIXAR'), button:has-text('Confirmar')"
+  },
+  "_comment": "NÃO use /empresas na raiz — é página pública SEO. searchPath = URL da Pesquisa por Filtros logada."
+}

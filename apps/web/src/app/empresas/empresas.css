@@ -1,0 +1,737 @@
+/* ── Empresas / CNPJ Module ──────────────────────────────────────────────── */
+
+.cnpj-page-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cnpj-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface2);
+  overflow: hidden;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────────────────── */
+.cnpj-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.cnpj-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cnpj-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cnpj-icon-wrap {
+  width: 38px;
+  height: 38px;
+  background: var(--blue);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.cnpj-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.cnpj-subtitle {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+/* Credits widget */
+.cnpj-credits-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text2);
+  cursor: default;
+  user-select: none;
+}
+
+.cnpj-credits-text {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.cnpj-credits-bar {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cnpj-credits-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .3s ease;
+}
+
+/* Input */
+.cnpj-input-wrap {
+  position: relative;
+}
+
+.cnpj-input {
+  width: 240px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'DM Mono', 'Courier New', monospace;
+  letter-spacing: .05em;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color .15s;
+}
+
+.cnpj-input:focus {
+  border-color: var(--blue);
+}
+
+.cnpj-input::placeholder {
+  color: var(--text3);
+  letter-spacing: .1em;
+}
+
+/* Search button */
+.cnpj-btn-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 36px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+
+.cnpj-btn-search:hover {
+  background: var(--blue-dark);
+}
+
+.cnpj-btn-search:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ── Status Bar ──────────────────────────────────────────────────────────── */
+.cnpj-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.cnpj-uf-banner {
+  padding: 10px 20px 0;
+}
+
+.cnpj-sync-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text3);
+}
+
+.cnpj-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cnpj-sync-dot.ok      { background: var(--green); }
+.cnpj-sync-dot.loading { background: var(--amber); animation: pulse 1.2s infinite; }
+.cnpj-sync-dot.err     { background: var(--red); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .3; }
+}
+
+.cnpj-sync-msg { color: var(--text2); }
+
+.cnpj-recarregar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+
+.cnpj-recarregar-btn:hover {
+  color: var(--blue);
+  background: var(--blue-bg);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.cnpj-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 20px 0;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.cnpj-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text3);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+
+.cnpj-tab-btn:hover { color: var(--text2); }
+
+.cnpj-tab-btn.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+  font-weight: 600;
+}
+
+.cnpj-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--border);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+/* ── Body / Content Area ─────────────────────────────────────────────────── */
+.cnpj-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cnpj-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  text-align: center;
+  gap: 8px;
+  padding: 60px 20px;
+}
+
+.cnpj-empty svg { opacity: .15; }
+
+.cnpj-empty p {
+  font-size: 13px;
+  color: var(--text3);
+  margin: 0;
+}
+
+.cnpj-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px;
+  color: var(--text3);
+  font-size: 13px;
+}
+
+.cnpj-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--text3);
+  text-align: center;
+}
+
+.cnpj-not-found p {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text2);
+  margin: 0;
+}
+
+.cnpj-not-found span {
+  font-size: 12px;
+  font-family: monospace;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.cnpj-card {
+  width: 100%;
+  max-width: 600px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cnpj-preview-card {
+  /* no changes — inherits from .cnpj-card */
+}
+
+.cnpj-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cnpj-card-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--blue-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.cnpj-card-icon.inativa { background: var(--red-bg); color: var(--red); }
+.cnpj-card-icon.suspensa { background: var(--amber-bg); color: var(--amber); }
+
+.cnpj-card-razao {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.cnpj-card-fantasia {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.cnpj-card-cnpj {
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .05em;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+/* Status badge */
+.cnpj-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  margin-top: 6px;
+}
+
+.cnpj-status-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cnpj-status-badge.ativa {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid #bbf7d0;
+}
+.cnpj-status-badge.ativa .dot { background: var(--green); }
+
+.cnpj-status-badge.inativa {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid #fecaca;
+}
+.cnpj-status-badge.inativa .dot { background: var(--red); }
+
+.cnpj-status-badge.suspensa {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid #fde68a;
+}
+.cnpj-status-badge.suspensa .dot { background: var(--amber); }
+
+.cnpj-status-badge.indef {
+  background: var(--surface2);
+  color: var(--text3);
+  border: 1px solid var(--border);
+}
+.cnpj-status-badge.indef .dot { background: var(--text3); }
+
+/* Card actions */
+.cnpj-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.cnpj-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+.cnpj-action-btn:hover {
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-color: #bfdbfe;
+}
+
+/* ── Fields grid ─────────────────────────────────────────────────────────── */
+.cnpj-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cnpj-field {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.cnpj-field-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.cnpj-field-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ── Locked section (preview) ────────────────────────────────────────────── */
+.cnpj-locked-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.5;
+}
+
+.cnpj-locked-section span:first-of-type {
+  color: var(--text2);
+  font-weight: 500;
+}
+
+/* ── Detail button ───────────────────────────────────────────────────────── */
+.cnpj-btn-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 12px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.cnpj-btn-detail:hover:not(:disabled) { background: var(--blue-dark); }
+
+.cnpj-btn-detail:disabled {
+  background: var(--border2);
+  color: var(--text3);
+  cursor: not-allowed;
+}
+
+.cnpj-credit-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: -8px;
+}
+
+/* ── Sócios ──────────────────────────────────────────────────────────────── */
+.cnpj-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.cnpj-socios-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.cnpj-socio-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cnpj-socio-item:last-child { border-bottom: none; }
+
+.cnpj-socio-avatar {
+  width: 30px;
+  height: 30px;
+  background: var(--blue-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.cnpj-socio-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ── Regime Tributário ───────────────────────────────────────────────────── */
+.cnpj-regime-section { display: flex; flex-direction: column; }
+
+.cnpj-regime-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cnpj-regime-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cnpj-regime-item:last-child { border-bottom: none; }
+
+.cnpj-regime-year {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  min-width: 36px;
+}
+
+.cnpj-regime-val {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.cnpj-regime-raw {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* ── Back button ─────────────────────────────────────────────────────────── */
+.cnpj-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.cnpj-back-btn:hover { text-decoration: underline; }
+
+/* ── History ─────────────────────────────────────────────────────────────── */
+.cnpj-history-list {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cnpj-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.cnpj-history-item:hover { background: var(--blue-bg); }
+
+.cnpj-history-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cnpj-history-razao {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cnpj-history-cnpj {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .04em;
+  color: var(--text3);
+  font-weight: 500;
+}
+
+.cnpj-history-date {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────────── */
+.skel {
+  background: linear-gradient(90deg, var(--border) 25%, var(--surface2) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  display: block;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.cnpj-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: var(--shadow-md);
+  max-width: min(90vw, 420px);
+  text-align: center;
+}

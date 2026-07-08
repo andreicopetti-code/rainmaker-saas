@@ -1,0 +1,21 @@
+export type ContactAgendaItem = {
+  contactId: string;
+  opportunityId: string | null;
+  displayName: string;
+  legalName: string;
+  isPJ: boolean;
+  doc: string;
+  contactPerson: string | null;
+  phone: string | null;
+  email: string | null;
+  cityUf: string | null;
+  setor: string | null;
+  regime: string | null;
+  porte: string | null;
+  origem: string | null;
+  stageId: string | null;
+  stageLabel: string | null;
+  stageBg: string | null;
+  stageText: string | null;
+  value: number | null;
+};

@@ -1,0 +1,16 @@
+{
+  "name": "@ceo-brain/empresaqui-sync",
+  "private": true,
+  "type": "module",
+  "description": "Ops: Empresaqui CSV → public.empresas",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "ingest": "node ingest/upsert-from-dir.mjs",
+    "download": "node download/playwright-export.mjs"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0",
+    "playwright": "^1.49.1",
+    "xlsx": "^0.18.5"
+  }
+}

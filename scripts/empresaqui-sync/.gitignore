@@ -1,0 +1,7 @@
+.auth/
+downloads/
+state/
+*.csv
+*.xlsx
+*.xls
+.env

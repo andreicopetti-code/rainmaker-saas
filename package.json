@@ -1,0 +1,27 @@
+{
+  "name": "ceo-brain-saas",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CEO Brain — SaaS de gestão de vendas",
+  "scripts": {
+    "dev": "npm run dev -w @ceo-brain/web",
+    "build": "npm run build -w @ceo-brain/web",
+    "lint": "npm run lint -w @ceo-brain/web",
+    "db:push": "npx supabase db push",
+    "db:reset": "npx supabase db reset",
+    "db:status": "npx supabase migration list",
+    "billing:setup": "node scripts/setup-stripe-billing.mjs",
+    "smoke:subscription": "node scripts/smoke-subscription.mjs",
+    "test:member-limits": "node scripts/test-member-limits.mjs",
+    "empresaqui:sync": "node scripts/empresaqui-sync/sync.mjs",
+    "empresaqui:ingest": "node scripts/empresaqui-sync/ingest/upsert-from-dir.mjs",
+    "empresaqui:save-session": "node scripts/empresaqui-sync/sync.mjs --save-session"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

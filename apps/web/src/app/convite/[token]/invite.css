@@ -1,0 +1,81 @@
+.invite-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.invite-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.invite-card h1 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  text-align: center;
+}
+
+.invite-org {
+  margin: 0 0 20px;
+  color: var(--text2);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.invite-btn--primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+.invite-msg {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text2);
+  text-align: center;
+}
+
+.invite-msg--warn { color: var(--amber, #b45309); }
+.invite-msg--error { color: var(--red); }
+
+.invite-error-banner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+}

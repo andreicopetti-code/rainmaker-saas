@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+apps/web/.next/
+apps/web/out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# misc
+.DS_Store
+*.log
+.vercel
+dist/
+coverage/
+.turbo/
+
+# legacy snapshot (manter no repo se quiser referência)
+# ceo_brain_files/

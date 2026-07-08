@@ -1,0 +1,14 @@
+-- =============================================================================
+-- CEO Brain SaaS — aplicar manualmente no Supabase SQL Editor (staging)
+-- Execute os arquivos em supabase/migrations/ NA ORDEM, um por vez:
+--
+--   1. 20260624000001_extensions_enums.sql
+--   2. 20260624000002_organizations.sql
+--   3. 20260624000003_subscriptions.sql
+--   4. 20260624000004_org_data.sql
+--   5. 20260624000005_usage.sql
+--   6. 20260624000006_rls.sql
+--   7. 20260624000007_triggers.sql
+--
+-- Ou use: npx supabase link && pnpm db:push
+-- =============================================================================

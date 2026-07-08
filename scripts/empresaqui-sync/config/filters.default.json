@@ -1,0 +1,10 @@
+{
+  "uf": "RS",
+  "situacao": ["ATIVA"],
+  "porte": [],
+  "cnae": [],
+  "regimeTributario": [],
+  "municipio": null,
+  "exportFormat": "csv_excel_padrao",
+  "notes": "Filtros aplicados na UI Empresaqui antes da pesquisa. Ajuste conforme plano/contrato."
+}
