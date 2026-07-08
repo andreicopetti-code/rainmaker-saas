@@ -296,6 +296,7 @@ function buildTopClosingCandidates(
       const nome = getNomePrimario(o);
       const etapa = getStageLabel(o.stage, stageConfig);
       const tier = getTier(getTierId(o))?.label ?? 'Sem classificação';
+      const bloqueios: string[] = [];
       if (isMissingActionableValue(o.value, o.custom_fields)) bloqueios.push('sem valor');
       if (!hasFutureAppt(o)) bloqueios.push('sem compromisso');
       if (!o.description?.trim() && (TIER_ORDER[getTierId(o) ?? ''] ?? 99) <= 1) bloqueios.push('sem nota');
