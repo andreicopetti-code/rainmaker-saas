@@ -1,5 +1,5 @@
 .billing-page {
-  max-width: 880px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 28px 20px 48px;
 }
@@ -71,12 +71,6 @@
 
 .billing-card--wide {
   grid-column: 1 / -1;
-}
-
-@media (min-width: 900px) {
-  .billing-card--wide {
-    grid-column: auto;
-  }
 }
 
 .billing-plan-picker {
@@ -241,16 +235,26 @@
 
 .billing-addon-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
   margin-top: 12px;
 }
 
+@media (min-width: 720px) {
+  .billing-addon-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
 .billing-addon-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px;
   background: var(--surface2);
+  min-width: 0;
 }
 
 .billing-addon-name {
@@ -266,6 +270,7 @@
 }
 
 .billing-addon-price span {
+  display: inline-block;
   font-size: 11px;
   font-weight: 600;
   color: var(--text3);
@@ -273,10 +278,15 @@
 }
 
 .billing-addon-desc {
+  flex: 1;
   font-size: 12px;
   color: var(--text2);
   line-height: 1.45;
   margin: 8px 0 12px;
+}
+
+.billing-addon-card .billing-btn {
+  margin-top: auto;
 }
 
 .subscription-banner {

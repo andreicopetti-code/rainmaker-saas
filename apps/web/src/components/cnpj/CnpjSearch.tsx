@@ -603,8 +603,15 @@ export function CnpjSearch({ initialCount, initialUsage, initialHistory, initial
     });
   }
 
+  const contractedUfLabel = ufSettings?.isNational
+    ? 'Brasil'
+    : ufSettings?.selectedUfs.length
+      ? ufSettings.selectedUfs.join(', ')
+      : null;
   const totalFmt = initialCount > 0
-    ? initialCount.toLocaleString('pt-BR') + ' empresas (RS)'
+    ? contractedUfLabel
+      ? `${initialCount.toLocaleString('pt-BR')} empresas (${contractedUfLabel})`
+      : `${initialCount.toLocaleString('pt-BR')} empresas`
     : 'Base CEO Brain';
 
   return (
