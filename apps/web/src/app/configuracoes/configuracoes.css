@@ -477,11 +477,19 @@
   font-size: 12px;
   text-align: center;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .settings-team-invite-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.settings-team-invite-block {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border2);
 }
 
 .settings-team-name-block {
@@ -623,6 +631,21 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-team-pending-info {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-team-pending-email {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .settings-team-link-btn,

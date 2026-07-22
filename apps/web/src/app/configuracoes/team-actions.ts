@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAppUrl } from '@/lib/billing/stripe';
+import { normalizeInviteEmail, sendTeamInviteEmail } from '@/lib/email/team-invite';
 
 export type TeamMemberRow = {
   id: string;
@@ -18,6 +19,7 @@ export type TeamMemberRow = {
 export type PendingInviteRow = {
   id: string;
   token: string;
+  email: string | null;
   expiresAt: string;
   createdAt: string;
   inviteUrl: string;
@@ -123,7 +125,7 @@ export async function getTeamOverview(): Promise<TeamOverview | null> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: inviteRows } = await (admin as any)
         .from('invite_tokens')
-        .select('id, token, expires_at, created_at')
+        .select('id, token, invited_email, expires_at, created_at')
         .eq('organization_id', orgId)
         .eq('used', false)
         .gt('expires_at', new Date().toISOString())
@@ -133,11 +135,13 @@ export async function getTeamOverview(): Promise<TeamOverview | null> {
       pendingInvites = ((inviteRows ?? []) as Array<{
         id: string;
         token: string;
+        invited_email: string | null;
         expires_at: string;
         created_at: string;
       }>).map((row) => ({
         id: row.id,
         token: row.token,
+        email: row.invited_email,
         expiresAt: row.expires_at,
         createdAt: row.created_at,
         inviteUrl: `${appUrl}/convite/${row.token}`,
@@ -192,13 +196,21 @@ export async function updateOrganizationName(
   }
 }
 
-export async function createTeamInvite(): Promise<
-  { inviteUrl: string } | { error: string }
+export async function createTeamInvite(
+  emailInput: string,
+): Promise<
+  | { inviteUrl: string; email: string; emailSent: boolean; warning?: string }
+  | { error: string }
 > {
   try {
     const { supabase, user, membership } = await getAuthContext();
     if (membership.role !== 'admin') {
       return { error: 'Somente administradores podem convidar membros.' };
+    }
+
+    const email = normalizeInviteEmail(emailInput);
+    if (!email) {
+      return { error: 'Informe um e-mail válido para enviar o convite.' };
     }
 
     const orgId = membership.organization_id;
@@ -221,21 +233,62 @@ export async function createTeamInvite(): Promise<
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: duplicateInvite } = await (supabase as any)
+      .from('invite_tokens')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('invited_email', email)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (duplicateInvite) {
+      return { error: 'Já existe um convite pendente para este e-mail.' };
+    }
+
     const token = randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const inviteUrl = `${getAppUrl()}/convite/${token}`;
 
-    const { error } = await supabase.from('invite_tokens').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('invite_tokens').insert({
       organization_id: orgId,
       token,
       created_by: user.id,
       expires_at: expiresAt,
+      invited_email: email,
     });
 
     if (error) return { error: error.message };
 
+    const admin = createAdminClient();
+    const [{ data: orgRow }, { data: profile }] = await Promise.all([
+      admin.from('organizations').select('name').eq('id', orgId).single(),
+      admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+    ]);
+
+    const emailResult = await sendTeamInviteEmail({
+      to: email,
+      organizationName: orgRow?.name ?? 'Organização',
+      inviterName: profile?.full_name ?? user.email ?? null,
+      inviteUrl,
+      expiresAt,
+    });
+
     revalidatePath('/configuracoes');
     revalidatePath('/billing');
-    return { inviteUrl: `${getAppUrl()}/convite/${token}` };
+
+    if (!emailResult.ok) {
+      return {
+        inviteUrl,
+        email,
+        emailSent: false,
+        warning: `Convite criado, mas o e-mail não foi enviado (${emailResult.error}). Copie o link abaixo.`,
+      };
+    }
+
+    return { inviteUrl, email, emailSent: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Erro ao criar convite' };
   }

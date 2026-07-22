@@ -343,6 +343,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id: string
+          invited_email: string | null
           organization_id: string
           token: string
           used: boolean
@@ -354,6 +355,7 @@ export type Database = {
           created_by: string
           expires_at: string
           id?: string
+          invited_email?: string | null
           organization_id: string
           token: string
           used?: boolean
@@ -365,6 +367,7 @@ export type Database = {
           created_by?: string
           expires_at?: string
           id?: string
+          invited_email?: string | null
           organization_id?: string
           token?: string
           used?: boolean

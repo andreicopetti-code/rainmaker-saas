@@ -17,8 +17,10 @@ export function OrganizationTeamPanel({ initial }: Props) {
   const router = useRouter();
   const [team, setTeam] = useState(initial);
   const [orgName, setOrgName] = useState(initial.organizationName);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -44,15 +46,45 @@ export function OrganizationTeamPanel({ initial }: Props) {
 
   function handleInvite() {
     setError(null);
+    setInviteSuccess(null);
     startTransition(async () => {
-      const result = await createTeamInvite();
+      const result = await createTeamInvite(inviteEmail);
       if ('error' in result) {
         setError(result.error);
         return;
       }
-      await navigator.clipboard.writeText(result.inviteUrl);
-      setCopied(result.inviteUrl);
-      setTimeout(() => setCopied(null), 4000);
+
+      setInviteEmail('');
+      setTeam((prev) => ({
+        ...prev,
+        canInvite: prev.memberCount + prev.pendingInvites.length + 1 < prev.memberLimit,
+        pendingInvites: [
+          {
+            id: `temp-${Date.now()}`,
+            token: '',
+            email: result.email,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date().toISOString(),
+            inviteUrl: result.inviteUrl,
+          },
+          ...prev.pendingInvites,
+        ],
+      }));
+
+      if (result.emailSent) {
+        setInviteSuccess(`Convite enviado para ${result.email}.`);
+      } else {
+        setInviteSuccess(result.warning ?? `Convite criado para ${result.email}.`);
+        try {
+          await navigator.clipboard.writeText(result.inviteUrl);
+          setCopied(result.inviteUrl);
+          setTimeout(() => setCopied(null), 4000);
+        } catch {
+          /* link continua disponível em pendentes */
+        }
+      }
+
+      setTimeout(() => setInviteSuccess(null), 5000);
       router.refresh();
     });
   }
@@ -94,16 +126,6 @@ export function OrganizationTeamPanel({ initial }: Props) {
             {isAdmin ? ' · convites expiram em 7 dias' : ''}
           </p>
         </div>
-        {isAdmin && (
-          <button
-            type="button"
-            className="settings-team-invite-btn"
-            onClick={handleInvite}
-            disabled={!team.canInvite || isPending}
-          >
-            Convidar membro
-          </button>
-        )}
       </div>
 
       {isAdmin ? (
@@ -141,11 +163,43 @@ export function OrganizationTeamPanel({ initial }: Props) {
         </p>
       )}
 
+      {isAdmin && (
+        <div className="settings-team-invite-block">
+          <label className="settings-team-name-label" htmlFor="invite-email">
+            Convidar por e-mail
+          </label>
+          <div className="settings-team-name-row">
+            <input
+              id="invite-email"
+              type="email"
+              className="settings-team-name-input"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="nome@empresa.com"
+              disabled={!team.canInvite || isPending}
+              autoComplete="email"
+            />
+            <button
+              type="button"
+              className="settings-team-invite-btn"
+              onClick={handleInvite}
+              disabled={!team.canInvite || isPending || !inviteEmail.trim()}
+            >
+              {isPending ? 'Enviando…' : 'Enviar convite'}
+            </button>
+          </div>
+          <p className="settings-team-name-hint">
+            O convidado recebe um e-mail com o link. Você também pode copiar o link depois.
+          </p>
+        </div>
+      )}
+
       {error && <div className="settings-team-error">{error}</div>}
       {nameSuccess && <div className="settings-team-success">{nameSuccess}</div>}
+      {inviteSuccess && <div className="settings-team-success">{inviteSuccess}</div>}
       {copied && (
         <div className="settings-team-success">
-          Link copiado — envie para o convidado.
+          Link copiado — envie para o convidado se precisar.
         </div>
       )}
 
@@ -174,6 +228,14 @@ export function OrganizationTeamPanel({ initial }: Props) {
           <div className="settings-team-pending-label">Convites pendentes</div>
           {team.pendingInvites.map((invite) => (
             <div key={invite.id} className="settings-team-pending-row">
+              <div className="settings-team-pending-info">
+                <span className="settings-team-pending-email">
+                  {invite.email || 'Sem e-mail'}
+                </span>
+                <span className="settings-team-expires">
+                  expira {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
+                </span>
+              </div>
               <button
                 type="button"
                 className="settings-team-link-btn"
@@ -181,9 +243,6 @@ export function OrganizationTeamPanel({ initial }: Props) {
               >
                 Copiar link
               </button>
-              <span className="settings-team-expires">
-                expira {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
-              </span>
               {!invite.id.startsWith('temp-') && (
                 <button
                   type="button"
