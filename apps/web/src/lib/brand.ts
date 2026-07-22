@@ -12,3 +12,4 @@ export const APP_EMAIL_FROM =
   'RainMaker <noreply@ceobrain.com.br>';
 export const APP_LOGO_PATH = '/logo.png';
 export const APP_LOGO_WORDMARK_PATH = '/logo-wordmark.png';
+export const APP_LOGO_VERTICAL_PATH = '/logo-vertical.png';

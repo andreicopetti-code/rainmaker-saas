@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActionState } from 'react';
 import { registerAccount, type RegisterState } from './actions';
-import { APP_NAME } from '@/lib/brand';
+import { AuthBrandMark } from '@/components/auth/AuthBrandMark';
 
 type Props = {
   inviteOrganizationName?: string | null;
@@ -27,10 +27,8 @@ export function RegisterForm({
       <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold">
-              {APP_NAME}
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">Conta criada</p>
+            <AuthBrandMark />
+            <p className="mt-4 text-sm text-slate-500">Conta criada</p>
           </div>
 
           <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
@@ -63,18 +61,16 @@ export function RegisterForm({
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold">
-            {APP_NAME}
-          </h1>
+          <AuthBrandMark />
           {inviteOrganizationName ? (
             <>
-              <p className="mt-2 text-sm text-slate-700">
+              <p className="mt-4 text-sm text-slate-700">
                 Convite para a equipe <strong>{inviteOrganizationName}</strong>
               </p>
               <p className="mt-1 text-sm text-slate-500">Crie sua conta para aceitar</p>
             </>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">Crie sua conta — trial 14 dias</p>
+            <p className="mt-4 text-sm text-slate-500">Crie sua conta — trial 14 dias</p>
           )}
         </div>
 

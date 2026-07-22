@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { APP_NAME } from '@/lib/brand';
+import { AuthBrandMark } from '@/components/auth/AuthBrandMark';
 
 function mapUpdateError(message: string): string {
   const m = message.toLowerCase();
@@ -55,10 +55,8 @@ export function ResetPasswordForm() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold">
-            {APP_NAME}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">Defina sua nova senha</p>
+          <AuthBrandMark />
+          <p className="mt-4 text-sm text-slate-500">Defina sua nova senha</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { APP_NAME } from '@/lib/brand';
+import { AuthBrandMark } from '@/components/auth/AuthBrandMark';
 
 function mapAuthError(message: string): string {
   const m = message.toLowerCase();
@@ -62,18 +62,16 @@ export function LoginForm({ inviteOrganizationName = null }: Props) {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold">
-            {APP_NAME}
-          </h1>
+          <AuthBrandMark />
           {inviteOrganizationName ? (
             <>
-              <p className="mt-2 text-sm text-slate-700">
+              <p className="mt-4 text-sm text-slate-700">
                 Convite para a equipe <strong>{inviteOrganizationName}</strong>
               </p>
               <p className="mt-1 text-sm text-slate-500">Entre com sua conta para aceitar</p>
             </>
           ) : (
-            <p className="mt-2 text-sm text-slate-500">Entre na sua conta</p>
+            <p className="mt-4 text-sm text-slate-500">Entre na sua conta</p>
           )}
         </div>
 
