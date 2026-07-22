@@ -587,7 +587,7 @@ export function CnpjSearch({ initialCount, initialUsage, initialHistory, initial
     ? contractedUfLabel
       ? `${initialCount.toLocaleString('pt-BR')} empresas (${contractedUfLabel})`
       : `${initialCount.toLocaleString('pt-BR')} empresas`
-    : 'Base CEO Brain';
+    : 'Base RainMaker';
 
   return (
     <div className="cnpj-page">
@@ -599,7 +599,7 @@ export function CnpjSearch({ initialCount, initialUsage, initialHistory, initial
           </div>
           <div>
             <div className="cnpj-title">Consulta CNPJ</div>
-            <div className="cnpj-subtitle">Busque empresas da Base CEO Brain por CNPJ</div>
+            <div className="cnpj-subtitle">Busque empresas da Base RainMaker por CNPJ</div>
           </div>
         </div>
         <div className="cnpj-topbar-right">
@@ -635,7 +635,7 @@ export function CnpjSearch({ initialCount, initialUsage, initialHistory, initial
         <div className="cnpj-sync-info">
           <span className={`cnpj-sync-dot ${initialCount > 0 ? 'ok' : 'loading'}`} />
           <span className="cnpj-sync-msg">
-            {initialCount > 0 ? `✓ Base CEO Brain · ${totalFmt}` : 'Conectando à Base CEO Brain...'}
+            {initialCount > 0 ? `✓ Base RainMaker · ${totalFmt}` : 'Conectando à Base RainMaker...'}
           </span>
         </div>
         <button className="cnpj-recarregar-btn" onClick={handleRecarregar}>

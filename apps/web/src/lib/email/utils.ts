@@ -5,25 +5,25 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Apresentação inicial',
     subject: 'Proposta para {{empresa}}',
     body:
-      'Olá {{responsavel}},\n\nFicamos felizes em apresentar nossa solução para {{empresa}}.\n\nSegue em anexo nossa proposta comercial. Estou à disposição para tirar dúvidas.\n\nAbraços,\nCEO Brain',
+      'Olá {{responsavel}},\n\nFicamos felizes em apresentar nossa solução para {{empresa}}.\n\nSegue em anexo nossa proposta comercial. Estou à disposição para tirar dúvidas.\n\nAbraços,\nRainMaker',
   },
   {
     name: 'Follow-up pós-reunião',
     subject: 'Próximos passos — {{empresa}}',
     body:
-      'Olá {{responsavel}},\n\nAgradecemos pela reunião de hoje. Conforme conversado, segue um resumo dos próximos passos.\n\nEstamos no aguardo do seu retorno.\n\nAbraços,\nCEO Brain',
+      'Olá {{responsavel}},\n\nAgradecemos pela reunião de hoje. Conforme conversado, segue um resumo dos próximos passos.\n\nEstamos no aguardo do seu retorno.\n\nAbraços,\nRainMaker',
   },
   {
     name: 'Proposta enviada',
-    subject: '[Proposta] {{empresa}} — CEO Brain',
+    subject: '[Proposta] {{empresa}} — RainMaker',
     body:
-      'Olá {{responsavel}},\n\nSegue nossa proposta formal para {{empresa}} no valor estimado de {{valor}}.\n\nEtapa atual: {{etapa}}.\n\nQualquer dúvida, estou à disposição.\n\nAbraços,\nCEO Brain',
+      'Olá {{responsavel}},\n\nSegue nossa proposta formal para {{empresa}} no valor estimado de {{valor}}.\n\nEtapa atual: {{etapa}}.\n\nQualquer dúvida, estou à disposição.\n\nAbraços,\nRainMaker',
   },
   {
     name: 'Reativação de negócio',
     subject: 'Ainda com interesse? — {{empresa}}',
     body:
-      'Olá {{responsavel}},\n\nFaz um tempo que não nos falamos sobre o projeto em {{empresa}}.\n\nGostaria de entender se ainda faz sentido avançar. Posso ajudar de alguma forma?\n\nAbraços,\nCEO Brain',
+      'Olá {{responsavel}},\n\nFaz um tempo que não nos falamos sobre o projeto em {{empresa}}.\n\nGostaria de entender se ainda faz sentido avançar. Posso ajudar de alguma forma?\n\nAbraços,\nRainMaker',
   },
 ] as const;
 

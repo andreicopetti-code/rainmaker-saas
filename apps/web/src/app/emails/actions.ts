@@ -346,7 +346,7 @@ export async function sendEmail(
   }
 
   const fromEmail = settingsRow.from_email;
-  const fromName = settingsRow.from_name || 'CEO Brain';
+  const fromName = settingsRow.from_name || 'RainMaker';
   const now = new Date().toISOString();
   let externalId: string | undefined;
   let realSend = false;
@@ -548,8 +548,8 @@ export async function saveEmailJsSettings(input: EmailJsConfig): Promise<{ ok: b
 
   const test = await sendViaEmailJs(input, {
     to: input.fromEmail,
-    subject: '✅ CEO Brain — Conexão de e-mail confirmada',
-    body: 'Parabéns! Seu CEO Brain está configurado e pronto para enviar e-mails reais.',
+    subject: '✅ RainMaker — Conexão de e-mail confirmada',
+    body: 'Parabéns! Seu RainMaker está configurado e pronto para enviar e-mails reais.',
   });
 
   if (!test.ok) return { ok: false, error: test.error };
@@ -563,7 +563,7 @@ export async function saveEmailJsSettings(input: EmailJsConfig): Promise<{ ok: b
       organization_id: ctx.orgId,
       provider: 'emailjs',
       from_email: input.fromEmail,
-      from_name: 'CEO Brain',
+      from_name: 'RainMaker',
       emailjs_service_id: input.serviceId,
       emailjs_template_id: input.templateId,
       emailjs_public_key: input.publicKey,
@@ -609,7 +609,7 @@ export async function connectResendFallback(fromEmail: string): Promise<{ ok: bo
       organization_id: ctx.orgId,
       provider: 'resend',
       from_email: fromEmail,
-      from_name: 'CEO Brain',
+      from_name: 'RainMaker',
       connected_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -648,7 +648,7 @@ export async function completeGoogleOAuth(code: string, state: string): Promise<
       organization_id: parsed.orgId,
       provider: 'gmail',
       from_email: tokens.email,
-      from_name: 'CEO Brain',
+      from_name: 'RainMaker',
       oauth_access_token: tokens.accessToken,
       oauth_refresh_token: tokens.refreshToken,
       oauth_expires_at: tokens.expiresAt,
@@ -663,7 +663,7 @@ export async function completeGoogleOAuth(code: string, state: string): Promise<
   await syncGmailInbox(parsed.orgId, {
     provider: 'gmail',
     from_email: tokens.email,
-    from_name: 'CEO Brain',
+    from_name: 'RainMaker',
     oauth_access_token: tokens.accessToken,
     oauth_refresh_token: tokens.refreshToken,
     oauth_expires_at: tokens.expiresAt,

@@ -11,6 +11,7 @@ import {
   PRECOS_TRUST_BAND,
 } from './home-copy';
 import type { PrecosPlanCopy } from './precos/precos-copy';
+import { APP_LOGO_PATH, APP_NAME, APP_TAGLINE } from '@/lib/brand';
 import './home.css';
 
 function PlanCard({ plan }: { plan: PrecosPlanCopy }) {
@@ -60,10 +61,10 @@ export default function Home() {
       <header className="home-header">
         <Link href="/" className="home-logo">
           <div className="home-logo-icon">
-            <Image src="/logo.png" alt="CEO Brain" width={36} height={36} priority />
+            <Image src={APP_LOGO_PATH} alt={APP_NAME} width={36} height={36} priority />
           </div>
           <span className="home-logo-text">
-            CEO <span>Brain</span>
+            Rain<span>Maker</span>
           </span>
         </Link>
         <nav className="home-nav" aria-label="Navegação principal">
@@ -186,7 +187,7 @@ export default function Home() {
         </section>
 
         <footer className="home-footer">
-          © {new Date().getFullYear()} CEO Brain · Copiloto executivo comercial
+          © {new Date().getFullYear()} {APP_NAME} · {APP_TAGLINE}
         </footer>
       </main>
     </div>

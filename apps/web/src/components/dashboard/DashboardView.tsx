@@ -381,7 +381,7 @@ export function DashboardView({ data }: Props) {
           </div>
         </div>
         <div className="dash-toolbar-right">
-          <Link href="/ceo" className="dash-btn dash-btn-ceo">Análise CEO Brain</Link>
+          <Link href="/ceo" className="dash-btn dash-btn-ceo">Análise RainMaker</Link>
         </div>
       </div>
 

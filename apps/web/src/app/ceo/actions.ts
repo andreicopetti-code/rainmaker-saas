@@ -50,7 +50,7 @@ function toUserFacingAiError(raw: string): string {
     return 'Estamos com alto volume de análises no momento. Aguarde cerca de 1 minuto e tente novamente.';
   }
   if (msg.includes('groq') || msg.includes('proxy-ai') || msg.includes('groq_api_key')) {
-    return 'O CEO Brain IA está temporariamente indisponível. Tente novamente em alguns minutos.';
+    return 'O RainMaker IA está temporariamente indisponível. Tente novamente em alguns minutos.';
   }
   if (msg.includes('quota') || msg.includes('limit_reached')) {
     return 'Você atingiu o limite de consultas de IA do seu plano neste mês.';
@@ -59,7 +59,7 @@ function toUserFacingAiError(raw: string): string {
     return 'Sua sessão expirou. Faça login novamente para continuar.';
   }
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('conexão') || msg.includes('conectar')) {
-    return 'Não foi possível conectar ao CEO Brain IA. Verifique sua internet e tente novamente.';
+    return 'Não foi possível conectar ao RainMaker IA. Verifique sua internet e tente novamente.';
   }
 
   return 'Não foi possível gerar a resposta agora. Tente novamente em instantes.';
@@ -351,7 +351,7 @@ export async function askCeo(
     } = await loadCeoData();
 
     if (!ceoBrainEnabled) {
-      return { error: 'CEO Brain IA não está incluído no seu plano. Faça upgrade para usar.' };
+      return { error: 'RainMaker IA não está incluído no seu plano. Faça upgrade para usar.' };
     }
 
     if (aiUsed >= aiLimit) {

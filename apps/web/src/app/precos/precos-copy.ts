@@ -21,7 +21,7 @@ export type PrecosPlanCopy = {
 export const PRECOS_HEADER = {
   title: 'Encontre seus próximos clientes com Inteligência Artificial',
   subtitle:
-    'O CEO Brain reúne prospecção inteligente, CRM, gestão comercial e Inteligência Artificial em uma única plataforma para acelerar suas vendas.',
+    'O RainMaker reúne prospecção inteligente, CRM, gestão comercial e Inteligência Artificial em uma única plataforma para acelerar suas vendas.',
   benefits: [
     'Base nacional de empresas',
     'CRM inteligente',
@@ -140,11 +140,11 @@ export const PRECOS_TRUST_BAND = [
 
 export const PRECOS_ROI = {
   title: 'Um único cliente pode pagar seu investimento.',
-  text: 'Se um novo contrato gerar mais receita do que sua mensalidade, o CEO Brain já se pagou. Nossa missão é ajudar você a conquistar esse próximo cliente mais rapidamente.',
+  text: 'Se um novo contrato gerar mais receita do que sua mensalidade, o RainMaker já se pagou. Nossa missão é ajudar você a conquistar esse próximo cliente mais rapidamente.',
 };
 
 export const PRECOS_DIFFERENTIATORS = {
-  title: 'Por que o CEO Brain é diferente?',
+  title: 'Por que o RainMaker é diferente?',
   items: [
     {
       title: 'Base nacional integrada',

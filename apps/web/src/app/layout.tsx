@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import { AppShell } from '@/components/AppShell';
+import { APP_NAME, APP_TAGLINE } from '@/lib/brand';
 import './globals.css';
 
 const dmSans = DM_Sans({
@@ -10,8 +11,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'CEO Brain',
-  description: 'Copiloto executivo comercial',
+  title: APP_NAME,
+  description: APP_TAGLINE,
 };
 
 export default function RootLayout({

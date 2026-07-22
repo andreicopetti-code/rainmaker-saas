@@ -124,7 +124,7 @@ export function CompaniesImportExport() {
             <div className="settings-section-title">Importação e Exportação de Dados</div>
             <div className="settings-section-desc">
               Faça backup ou restaure negociações e contatos (empresas). Importações JSON/CSV permitem
-              substituir todos os dados ou mesclar apenas registros novos — como no CEO Brain original.
+              substituir todos os dados ou mesclar apenas registros novos — como no legado original.
             </div>
           </div>
         </div>

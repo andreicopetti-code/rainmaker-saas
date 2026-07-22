@@ -746,7 +746,7 @@ export function EmailsView({ data: initialData }: Props) {
               <>
                 <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
                   Conecte sua conta Google para <strong>enviar</strong> e <strong>receber</strong> e-mails diretamente
-                  no CEO Brain. Requer variáveis <code>GOOGLE_CLIENT_ID</code> e <code>GOOGLE_CLIENT_SECRET</code> no servidor.
+                  no RainMaker. Requer variáveis <code>GOOGLE_CLIENT_ID</code> e <code>GOOGLE_CLIENT_SECRET</code> no servidor.
                 </p>
                 <a href="/api/email/google" className="btn-primary" style={{ textAlign: 'center', textDecoration: 'none' }}>
                   Conectar conta Google

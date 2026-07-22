@@ -77,7 +77,7 @@ export function evaluateBillingAccess(org: OrgSubscriptionRow): BillingAccess {
       isActive: false,
       isPastDue: false,
       isCanceled: false,
-      blockReason: trialValid ? null : 'Seu trial de 14 dias expirou. Assine para continuar usando o CEO Brain.',
+      blockReason: trialValid ? null : 'Seu trial de 14 dias expirou. Assine para continuar usando o RainMaker.',
       showUpgradeBanner: trialValid && daysLeft !== null && daysLeft <= 3,
     };
   }
@@ -91,7 +91,7 @@ export function evaluateBillingAccess(org: OrgSubscriptionRow): BillingAccess {
     isActive: false,
     isPastDue: false,
     isCanceled: true,
-    blockReason: 'Assinatura cancelada. Renove para voltar a usar o CEO Brain.',
+    blockReason: 'Assinatura cancelada. Renove para voltar a usar o RainMaker.',
     showUpgradeBanner: true,
   };
 }

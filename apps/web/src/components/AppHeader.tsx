@@ -8,6 +8,7 @@ import { getUnreadEmailCount } from '@/app/emails/actions';
 import { FunnelHeaderTools } from '@/components/funnel/FunnelHeaderTools';
 import { UserMenu } from '@/components/UserMenu';
 import { useTheme } from '@/components/ThemeProvider';
+import { APP_AI_NAME, APP_AI_NAV_LABEL, APP_LOGO_PATH, APP_NAME } from '@/lib/brand';
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -34,9 +35,11 @@ export function AppHeader() {
     <header className="header">
       <Link href="/funil" className="logo" prefetch>
         <div className="logo-icon">
-          <Image src="/logo.png" alt="CEO Brain" width={34} height={34} priority />
+          <Image src={APP_LOGO_PATH} alt={APP_NAME} width={34} height={34} priority />
         </div>
-        <span className="logo-text">CEO <span>Brain</span></span>
+        <span className="logo-text">
+          Rain<span>Maker</span>
+        </span>
       </Link>
 
       <nav className="header-nav" role="navigation" aria-label="Navegação principal">
@@ -116,11 +119,11 @@ export function AppHeader() {
           <span>Empresas</span>
         </Link>
 
-        <Link href="/ceo" className={`btn-nav btn-nav-ceo${isCeo ? ' active' : ''}`} aria-label="CEO Brain IA" prefetch>
+        <Link href="/ceo" className={`btn-nav btn-nav-ceo${isCeo ? ' active' : ''}`} aria-label={APP_AI_NAME} prefetch>
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
             <path d="M12 2 L14 9 L21 11 L14 13 L12 20 L10 13 L3 11 L10 9 Z" />
           </svg>
-          <span>CEO Brain</span>
+          <span>{APP_AI_NAV_LABEL}</span>
         </Link>
       </nav>
 

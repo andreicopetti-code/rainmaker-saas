@@ -1,8 +1,7 @@
 import { sendViaResend } from '@/lib/email/providers';
+import { APP_EMAIL_FROM } from '@/lib/brand';
 
-const FROM =
-  process.env.EMAIL_FROM?.trim() ||
-  'CEO Brain <noreply@ceobrain.com.br>';
+const FROM = process.env.EMAIL_FROM?.trim() || APP_EMAIL_FROM;
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -36,7 +35,7 @@ export async function sendTeamInviteEmail(params: {
   const text = [
     `Olá,`,
     '',
-    `${who} pediu para você entrar na equipe "${org}" no CEO Brain.`,
+    `${who} pediu para você entrar na equipe "${org}" no RainMaker.`,
     '',
     `Para aceitar, abra este link:`,
     params.inviteUrl,
@@ -49,7 +48,7 @@ export async function sendTeamInviteEmail(params: {
   // HTML mínimo, sem botão estilizado — parece e-mail operacional
   const html = `
     <p>Olá,</p>
-    <p>${escapeHtml(who)} pediu para você entrar na equipe "${escapeHtml(org)}" no CEO Brain.</p>
+    <p>${escapeHtml(who)} pediu para você entrar na equipe "${escapeHtml(org)}" no RainMaker.</p>
     <p>Para aceitar, abra este link:<br>
     <a href="${escapeHtml(params.inviteUrl)}">${escapeHtml(params.inviteUrl)}</a></p>
     <p>Esse link vale até ${escapeHtml(expiresLabel)}.</p>

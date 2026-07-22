@@ -65,7 +65,7 @@ export const PRICING_PLANS: PlanDefinition[] = [
       'Funil + agenda + contatos',
       'Preview de CNPJ (dados básicos)',
       '3 fichas completas de empresa/mês',
-      '30 mensagens CEO Brain/mês',
+      '30 mensagens RainMaker IA/mês',
       '1 usuário · até 30 deals',
     ],
   },

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { APP_NAME } from '@/lib/brand';
 
 function mapResetError(message: string): string {
   const m = message.toLowerCase();
@@ -45,7 +46,7 @@ export function ForgotPasswordForm() {
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold">
-            CEO Brain <span className="text-blue-600">SaaS</span>
+            {APP_NAME}
           </h1>
           <p className="mt-2 text-sm text-slate-500">Recuperar senha</p>
         </div>

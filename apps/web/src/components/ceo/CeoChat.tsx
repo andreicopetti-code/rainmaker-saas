@@ -876,7 +876,7 @@ export function CeoChat({ pageData }: Props) {
           {isEmpty && (
             <div className="ceo-empty">
               <div className="ceo-empty-icon">🧠</div>
-              <div className="ceo-empty-text">CEO Brain está analisando seu pipeline…</div>
+              <div className="ceo-empty-text">RainMaker está analisando seu pipeline…</div>
             </div>
           )}
           {messages.map((msg, i) => {

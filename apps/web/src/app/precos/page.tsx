@@ -15,6 +15,7 @@ import {
   PRECOS_VALUE_PROPS,
   type PrecosPlanCopy,
 } from './precos-copy';
+import { APP_LOGO_PATH, APP_NAME } from '@/lib/brand';
 import './precos.css';
 
 function PlanCard({ plan }: { plan: PrecosPlanCopy }) {
@@ -95,10 +96,10 @@ export default function PrecosPage() {
       <header className="precos-header">
         <Link href="/" className="precos-logo">
           <div className="precos-logo-icon">
-            <Image src="/logo.png" alt="CEO Brain" width={34} height={34} priority />
+            <Image src={APP_LOGO_PATH} alt={APP_NAME} width={34} height={34} priority />
           </div>
           <span className="precos-logo-text">
-            CEO <span>Brain</span>
+            Rain<span>Maker</span>
           </span>
         </Link>
         <div className="precos-header-actions">

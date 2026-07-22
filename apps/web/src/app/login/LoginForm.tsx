@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { APP_NAME } from '@/lib/brand';
 
 function mapAuthError(message: string): string {
   const m = message.toLowerCase();
@@ -62,7 +63,7 @@ export function LoginForm({ inviteOrganizationName = null }: Props) {
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold">
-            CEO Brain <span className="text-blue-600">SaaS</span>
+            {APP_NAME}
           </h1>
           {inviteOrganizationName ? (
             <>

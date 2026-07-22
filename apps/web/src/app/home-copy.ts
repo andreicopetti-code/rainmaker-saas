@@ -10,7 +10,7 @@ export const HOME_HERO = {
   eyebrow: 'Trial 14 dias · sem cartão · cancele quando quiser',
   title: 'Encontre clientes, organize o funil e venda mais com IA',
   subtitle:
-    'CEO Brain reúne base de empresas por CNPJ, CRM visual, agenda comercial e assistente de IA, tudo em uma plataforma pensada para equipes de vendas no Brasil.',
+    'RainMaker reúne base de empresas por CNPJ, CRM visual, agenda comercial e assistente de IA, tudo em uma plataforma pensada para equipes de vendas no Brasil.',
   primaryCta: 'Começar trial gratuito',
   primaryHref: '/register',
   secondaryCta: 'Ver planos e preços',
@@ -36,7 +36,7 @@ export const HOME_STEPS = [
   },
   {
     step: '3',
-    title: 'Feche com CEO Brain',
+    title: 'Feche com RainMaker',
     description: 'Briefing diário, agenda integrada e equipe na mesma pipeline.',
   },
 ];

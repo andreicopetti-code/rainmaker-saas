@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useActionState } from 'react';
 import { registerAccount, type RegisterState } from './actions';
+import { APP_NAME } from '@/lib/brand';
 
 type Props = {
   inviteOrganizationName?: string | null;
@@ -27,7 +28,7 @@ export function RegisterForm({
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-bold">
-              CEO Brain <span className="text-blue-600">SaaS</span>
+              {APP_NAME}
             </h1>
             <p className="mt-2 text-sm text-slate-500">Conta criada</p>
           </div>
@@ -63,7 +64,7 @@ export function RegisterForm({
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold">
-            CEO Brain <span className="text-blue-600">SaaS</span>
+            {APP_NAME}
           </h1>
           {inviteOrganizationName ? (
             <>
