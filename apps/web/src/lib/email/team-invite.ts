@@ -18,6 +18,7 @@ export async function sendTeamInviteEmail(params: {
   to: string;
   organizationName: string;
   inviterName: string | null;
+  inviterEmail?: string | null;
   inviteUrl: string;
   expiresAt: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -27,42 +28,38 @@ export async function sendTeamInviteEmail(params: {
     year: 'numeric',
   });
   const who = params.inviterName?.trim() || 'Um administrador';
-  const subject = `Convite para a equipe ${params.organizationName} — CEO Brain`;
+  const org = params.organizationName.trim() || 'sua equipe';
+
+  // Assunto curto e pessoal — menos “campanha”
+  const subject = `${who} adicionou você em ${org}`;
 
   const text = [
-    `${who} convidou você para a equipe ${params.organizationName} no CEO Brain.`,
+    `Olá,`,
     '',
-    `Aceite o convite neste link:`,
+    `${who} pediu para você entrar na equipe "${org}" no CEO Brain.`,
+    '',
+    `Para aceitar, abra este link:`,
     params.inviteUrl,
     '',
-    `O convite expira em ${expiresLabel}.`,
+    `Esse link vale até ${expiresLabel}.`,
     '',
-    'Se você não esperava este e-mail, pode ignorá-lo.',
+    `Se não foi você quem esperava isso, ignore esta mensagem.`,
   ].join('\n');
 
+  // HTML mínimo, sem botão estilizado — parece e-mail operacional
   const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:560px">
-      <h2 style="margin:0 0 12px;font-size:20px">Convite para o CEO Brain</h2>
-      <p style="margin:0 0 12px">
-        <strong>${escapeHtml(who)}</strong> convidou você para a equipe
-        <strong>${escapeHtml(params.organizationName)}</strong>.
-      </p>
-      <p style="margin:0 0 20px">
-        <a href="${escapeHtml(params.inviteUrl)}"
-           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">
-          Aceitar convite
-        </a>
-      </p>
-      <p style="margin:0 0 8px;font-size:13px;color:#475569">
-        Ou copie e cole este link no navegador:<br/>
-        <a href="${escapeHtml(params.inviteUrl)}">${escapeHtml(params.inviteUrl)}</a>
-      </p>
-      <p style="margin:16px 0 0;font-size:12px;color:#64748b">
-        O convite expira em ${escapeHtml(expiresLabel)}.
-        Se você não esperava este e-mail, pode ignorá-lo.
-      </p>
-    </div>
+    <p>Olá,</p>
+    <p>${escapeHtml(who)} pediu para você entrar na equipe "${escapeHtml(org)}" no CEO Brain.</p>
+    <p>Para aceitar, abra este link:<br>
+    <a href="${escapeHtml(params.inviteUrl)}">${escapeHtml(params.inviteUrl)}</a></p>
+    <p>Esse link vale até ${escapeHtml(expiresLabel)}.</p>
+    <p>Se não foi você quem esperava isso, ignore esta mensagem.</p>
   `.trim();
+
+  const replyTo =
+    params.inviterEmail && isValidEmail(params.inviterEmail)
+      ? params.inviterEmail.trim().toLowerCase()
+      : undefined;
 
   return sendViaResend({
     from: FROM,
@@ -70,6 +67,7 @@ export async function sendTeamInviteEmail(params: {
     subject,
     body: text,
     html,
+    replyTo,
   });
 }
 

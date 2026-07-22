@@ -272,6 +272,7 @@ export async function createTeamInvite(
       to: email,
       organizationName: orgRow?.name ?? 'Organização',
       inviterName: profile?.full_name ?? user.email ?? null,
+      inviterEmail: user.email ?? null,
       inviteUrl,
       expiresAt,
     });

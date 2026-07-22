@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { acceptTeamInvite } from '@/app/configuracoes/team-actions';
 
@@ -23,6 +23,7 @@ export function AcceptInviteClient({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const autoStarted = useRef(false);
 
   async function handleAccept() {
     setError(null);
@@ -40,6 +41,14 @@ export function AcceptInviteClient({
       setIsPending(false);
     }
   }
+
+  useEffect(() => {
+    if (!isLoggedIn || expired || used || alreadyMember || autoStarted.current) return;
+    autoStarted.current = true;
+    void handleAccept();
+    // Aceita automaticamente quando o usuário já está autenticado no link do convite.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, expired, used, alreadyMember, token]);
 
   if (used) {
     return <p className="invite-msg invite-msg--warn">Este convite já foi utilizado.</p>;
@@ -83,6 +92,11 @@ export function AcceptInviteClient({
           {error}
         </div>
       )}
+      <p className="invite-msg">
+        {isPending
+          ? `Entrando na equipe ${organizationName}…`
+          : `Pronto para entrar na equipe ${organizationName}.`}
+      </p>
       <button
         type="button"
         className="invite-btn invite-btn--primary"

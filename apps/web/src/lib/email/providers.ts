@@ -114,7 +114,14 @@ export async function sendViaEmailJs(
 }
 
 export async function sendViaResend(
-  params: { from: string; to: string; subject: string; body: string; html?: string },
+  params: {
+    from: string;
+    to: string;
+    subject: string;
+    body: string;
+    html?: string;
+    replyTo?: string;
+  },
 ): Promise<{ ok: true; externalId?: string } | { ok: false; error: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY não configurada' };
@@ -131,6 +138,7 @@ export async function sendViaResend(
       subject: params.subject,
       text: params.body,
       ...(params.html ? { html: params.html } : {}),
+      ...(params.replyTo ? { reply_to: params.replyTo } : {}),
     }),
   });
 

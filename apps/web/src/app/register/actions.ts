@@ -43,11 +43,16 @@ export async function registerAccount(
   }
 
   const supabase = await createClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://www.ceobrain.com.br';
+  const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/funil';
+  const emailRedirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(safeRedirect)}`;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: fullName },
+      emailRedirectTo,
     },
   });
 
@@ -56,7 +61,7 @@ export async function registerAccount(
   }
 
   if (data.session) {
-    redirect(redirectTo.startsWith('/') ? redirectTo : '/funil');
+    redirect(safeRedirect);
   }
 
   return { success: true, needsEmailConfirmation: true };
