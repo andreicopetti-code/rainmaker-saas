@@ -35,7 +35,7 @@ export function AppHeader() {
     <header className="header">
       <Link href="/funil" className="logo" prefetch>
         <div className="logo-icon">
-          <Image src={APP_LOGO_PATH} alt={APP_NAME} width={34} height={34} priority />
+          <Image src={APP_LOGO_PATH} alt={APP_NAME} width={40} height={40} priority />
         </div>
         <span className="logo-text">
           Rain<span>Maker</span>

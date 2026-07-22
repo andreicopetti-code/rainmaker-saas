@@ -98,21 +98,48 @@ async function getOrgId(supabase: Awaited<ReturnType<typeof createClient>>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = (supabase: Awaited<ReturnType<typeof createClient>>) => supabase as any;
 
-/** Estimativa exibida na UI — evita COUNT(*) em tabela grande no carregamento da página. */
-const EMPRESAS_RS_DISPLAY_COUNT = Number(
-  process.env.EMPRESAS_RS_DISPLAY_COUNT ?? 375_000,
-);
+/**
+ * Contagens por UF usadas como fallback se o COUNT(*) falhar.
+ * Atualizar ao importar um novo estado.
+ */
+const EMPRESAS_UF_FALLBACK: Record<string, number> = {
+  RS: Number(process.env.EMPRESAS_RS_COUNT ?? 304_515),
+  SE: Number(process.env.EMPRESAS_SE_COUNT ?? 170_501),
+};
 
+function sumUfFallback(ufs: string[] | null): number {
+  if (ufs?.length) {
+    return ufs.reduce((sum, uf) => sum + (EMPRESAS_UF_FALLBACK[uf.toUpperCase()] ?? 0), 0);
+  }
+  return Object.values(EMPRESAS_UF_FALLBACK).reduce((a, b) => a + b, 0);
+}
+
+/** Total de empresas na base para as UFs do pacote da organização. */
 export async function getEmpresaCount(): Promise<number> {
   const supabase = await createClient();
-  const { data, error } = await db(supabase)
-    .from('empresas')
-    .select('cnpj')
-    .limit(1)
-    .maybeSingle();
+  const orgId = await getOrgId(supabase);
+  if (!orgId) return 0;
 
-  if (error || !data) return 0;
-  return EMPRESAS_RS_DISPLAY_COUNT;
+  const access = await getOrgUfAccess(supabase, orgId);
+
+  let ufs: string[] | null = null;
+  if (access.isNational || access.isPreviewOnly) {
+    ufs = null;
+  } else if (access.selectedUfs.length > 0) {
+    ufs = access.selectedUfs.map((uf) => uf.trim().toUpperCase()).filter(Boolean);
+  } else {
+    return 0;
+  }
+
+  let query = db(supabase)
+    .from('empresas')
+    .select('cnpj', { count: 'exact', head: true });
+  if (ufs) query = query.in('estado', ufs);
+
+  const { count, error } = await query;
+  if (!error && typeof count === 'number') return count;
+
+  return sumUfFallback(ufs);
 }
 
 export async function getCnpjUsage(): Promise<CnpjUsage> {

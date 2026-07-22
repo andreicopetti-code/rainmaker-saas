@@ -94,10 +94,10 @@ body {
   flex-shrink: 0;
 }
 
-.logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; text-decoration: none; }
-.logo-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.logo-icon img { width: 34px; height: 34px; object-fit: cover; }
-.logo-text { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+.logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; text-decoration: none; }
+.logo-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+.logo-icon img { width: 40px; height: 40px; object-fit: cover; }
+.logo-text { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.02em; line-height: 1; }
 .logo-text span { color: var(--blue); }
 
 .header-nav {

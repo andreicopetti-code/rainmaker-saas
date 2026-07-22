@@ -3,7 +3,7 @@ export const APP_NAME = 'RainMaker';
 export const APP_NAME_SHORT = 'RainMaker';
 /** Feature de IA (antiga “CEO Brain”). */
 export const APP_AI_NAME = 'RainMaker IA';
-export const APP_AI_NAV_LABEL = 'IA';
+export const APP_AI_NAV_LABEL = 'RM IA';
 export const APP_TAGLINE = 'Copiloto comercial com IA';
 export const APP_EMAIL_FROM_NAME = 'RainMaker';
 /** Remetente transacional enquanto o domínio novo não está no ar. */
