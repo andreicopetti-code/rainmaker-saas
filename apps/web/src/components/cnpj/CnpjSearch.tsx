@@ -11,6 +11,7 @@ import {
   getCnpjUsage,
 } from '@/app/empresas/actions';
 import { isEmpresaUfAllowedForFicha } from '@/lib/billing/org-uf-access';
+import { resolveRegimeDisplay } from '@/lib/empresas/empresa-contact';
 import { OrganizationUfSelector } from '@/components/settings/OrganizationUfSelector';
 import type { OrganizationUfSettings } from '@/app/configuracoes/actions';
 import '@/components/settings/organization-uf.css';
@@ -24,8 +25,6 @@ type ViewState =
   | { kind: 'detail'; empresa: EmpresaDetail }
   | { kind: 'not_found'; cnpj: string }
   | { kind: 'error'; message: string };
-
-interface RegimeEntry { year: string; val: string }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function maskCnpj(value: string): string {
@@ -52,41 +51,17 @@ function detectStatus(situacao: string | null): { cls: string; label: string } {
   return { cls: 'indef', label: situacao ?? '' };
 }
 
-function parseRegime(raw: string | null): RegimeEntry[] | string | null {
-  if (!raw || !raw.trim()) return null;
-  const anoMatches = raw.match(/ANO\s+(\d{4})\s+[^;]+/gi);
-  if (anoMatches?.length) {
-    const parsed = anoMatches.map(m => {
-      const p = m.match(/ANO\s+(\d{4})\s+(.+)/i);
-      return p ? { year: p[1], val: normalizeRegimeVal(p[2]) } : null;
-    }).filter(Boolean) as RegimeEntry[];
-    if (parsed.length) return parsed.sort((a, b) => Number(b.year) - Number(a.year));
-  }
-  const parts = raw.split(/[;|/\n]+/).map(s => s.trim()).filter(Boolean);
-  const parsed = parts.map(p => {
-    const m = p.match(/(\d{4})\s*[-–:]\s*(.+)/);
-    return m ? { year: m[1], val: m[2].trim() } : null;
-  }).filter(Boolean) as RegimeEntry[];
-  if (parsed.length) return parsed.sort((a, b) => Number(b.year) - Number(a.year));
-  return raw;
-}
-
-function normalizeRegimeVal(txt: string): string {
-  const t = txt.trim().replace(/;$/, '').trim().toUpperCase();
-  if (t.includes('LUCRO REAL')) return 'Lucro Real';
-  if (t.includes('PRESUMIDO')) return 'Lucro Presumido';
-  if (t.includes('SIMPLES') || t.includes('MEI')) return 'Simples Nacional';
-  if (t.includes('ARBITRADO')) return 'Lucro Arbitrado';
-  return txt.trim();
-}
-
+/** Preview: não revela Real vs Presumido antes do unlock. */
 function regimeSimples(empresa: EmpresaPreview): string {
-  const regime = parseRegime(empresa.regime_historico || empresa.regime_tributario);
-  if (!regime) return '';
-  const raw = typeof regime === 'string' ? regime : regime[0]?.val ?? '';
+  const display = resolveRegimeDisplay(empresa.regime_tributario, empresa.regime_historico);
+  if (display.kind === 'empty') return '';
+  const raw = display.kind === 'timeline' ? display.entries[0]?.val ?? '' : display.label;
   const u = raw.toUpperCase();
   if (u.includes('SIMPLES') || u.includes('MEI')) return 'Simples Nacional';
-  if (u.includes('LUCRO')) return 'Lucro Real ou Presumido';
+  if (u.includes('LUCRO') || u.includes('PRESUMIDO') || u.includes('REAL')) {
+    return 'Lucro Real ou Presumido';
+  }
+  if (u.includes('IMUNE') || u.includes('ISENTO')) return 'Imune / Isento';
   return 'Ver dados completos';
 }
 
@@ -221,7 +196,7 @@ function PreviewCard({
         <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14} style={{ opacity: .5 }}>
           <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
         </svg>
-        <span>Sócios · CNAE · Telefone · E-mail · Regime completo (últimos anos)</span>
+        <span>Sócios · CNAE · Telefone · E-mail · Regime tributário</span>
         <span style={{ color: 'var(--text3)', fontSize: 11 }}>Disponíveis ao ver os dados completos.</span>
       </div>
 
@@ -271,7 +246,7 @@ function DetailCard({
 }) {
   const cnpjFmt = formatCnpj(empresa.cnpj);
   const socios = getSocios(empresa.socios);
-  const regime = parseRegime(empresa.regime_historico || empresa.regime_tributario);
+  const regime = resolveRegimeDisplay(empresa.regime_tributario, empresa.regime_historico);
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
@@ -282,14 +257,14 @@ function DetailCard({
   };
 
   let regimeEl: React.ReactNode;
-  if (!regime) {
+  if (regime.kind === 'empty') {
     regimeEl = <span style={{ color: 'var(--text3)', fontSize: 13 }}>Não informado</span>;
-  } else if (typeof regime === 'string') {
-    regimeEl = <span className="cnpj-regime-raw">{regime}</span>;
+  } else if (regime.kind === 'current') {
+    regimeEl = <span className="cnpj-regime-raw">{regime.label}</span>;
   } else {
     regimeEl = (
       <div className="cnpj-regime-timeline">
-        {regime.map(e => (
+        {regime.entries.map(e => (
           <div key={e.year} className="cnpj-regime-item">
             <span className="cnpj-regime-year">{e.year}</span>
             <span className="cnpj-regime-val">{e.val}</span>

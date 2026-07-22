@@ -1,8 +1,6 @@
 import { REGIMES_TRIBUTARIOS, SETORES } from '@/components/board/types';
 import type { EmpresaDetail } from '@/app/empresas/actions';
 
-type RegimeEntry = { year: string; val: string };
-
 export function parseSocios(socios: string | null): string[] {
   if (!socios?.trim()) return [];
   if (socios.includes(';') || socios.includes('|')) {
@@ -44,42 +42,81 @@ export function pickSocioPessoaFisica(socios: string[]): string {
   return socios.find((s) => !isSocioPessoaJuridica(s)) ?? socios[0] ?? '';
 }
 
+export type RegimeEntry = { year: string; val: string };
+
+export type RegimeDisplay =
+  | { kind: 'empty' }
+  | { kind: 'current'; label: string }
+  | { kind: 'timeline'; entries: RegimeEntry[] };
+
 function normalizeRegimeVal(txt: string): string {
-  const t = txt.trim().replace(/;$/, '').trim();
+  const t = txt.trim().replace(/[;,]+$/, '').trim();
   const u = t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (u.includes('MEI')) return 'MEI';
   if (u.includes('SIMPLES') || u.includes(' SN ')) return 'Simples Nacional';
-  if (u.includes('PRESUMIDO')) return 'Lucro Presumido';
-  if (u.includes('REAL') && !u.includes('PRESUMIDO')) return 'Lucro Real';
+
+  const hasPresumido = u.includes('PRESUMIDO');
+  const hasReal = /\bLUCRO\s+REAL\b/.test(u) || (/\bREAL\b/.test(u) && !hasPresumido);
+  if (hasPresumido && hasReal) return 'Lucro Real ou Presumido';
+  if (hasPresumido) return 'Lucro Presumido';
+  if (hasReal) return 'Lucro Real';
   if (u.includes('ARBITRADO')) return 'Lucro Arbitrado';
   if (u.includes('IMUNE') || u.includes('ISENTO')) return 'Imune / Isento';
   return t;
 }
 
+function sortRegimeEntries(entries: RegimeEntry[]): RegimeEntry[] {
+  return [...entries].sort((a, b) => Number(b.year) - Number(a.year));
+}
+
 export function parseRegimeHistorico(raw: string | null): RegimeEntry[] | string | null {
   if (!raw?.trim()) return null;
 
-  const anoMatches = raw.match(/ANO\s+(\d{4})\s+[^;]+/gi);
-  if (anoMatches?.length) {
+  const anoMatches = [...raw.matchAll(/ANO\s+(\d{4})\s+([^,;]+)/gi)];
+  if (anoMatches.length) {
     const parsed = anoMatches
-      .map((m) => {
-        const p = m.match(/ANO\s+(\d{4})\s+(.+)/i);
-        return p ? { year: p[1], val: normalizeRegimeVal(p[2]) } : null;
-      })
-      .filter(Boolean) as RegimeEntry[];
-    if (parsed.length) return parsed.sort((a, b) => Number(b.year) - Number(a.year));
+      .map((m) => ({ year: m[1], val: normalizeRegimeVal(m[2]) }))
+      .filter((e) => e.val);
+    if (parsed.length) return sortRegimeEntries(parsed);
   }
 
-  const parts = raw.split(/[;|/\n]+/).map((s) => s.trim()).filter(Boolean);
+  const parts = raw.split(/[;|/\n,]+/).map((s) => s.trim()).filter(Boolean);
   const parsed = parts
     .map((p) => {
       const m = p.match(/(\d{4})\s*[-–:]\s*(.+)/);
       return m ? { year: m[1], val: normalizeRegimeVal(m[2]) } : null;
     })
     .filter(Boolean) as RegimeEntry[];
-  if (parsed.length) return parsed.sort((a, b) => Number(b.year) - Number(a.year));
+  if (parsed.length) return sortRegimeEntries(parsed);
 
   return raw.trim();
+}
+
+/**
+ * Ficha completa: timeline só com 2+ anos; caso contrário, só o regime atual.
+ */
+export function resolveRegimeDisplay(
+  regimeTributario: string | null,
+  regimeHistorico: string | null,
+): RegimeDisplay {
+  const history = parseRegimeHistorico(regimeHistorico);
+  if (Array.isArray(history) && history.length >= 2) {
+    return { kind: 'timeline', entries: history };
+  }
+
+  if (regimeTributario?.trim()) {
+    return { kind: 'current', label: normalizeRegimeVal(regimeTributario) };
+  }
+
+  if (Array.isArray(history) && history.length === 1) {
+    return { kind: 'current', label: history[0].val };
+  }
+
+  if (typeof history === 'string' && history.trim()) {
+    return { kind: 'current', label: normalizeRegimeVal(history) };
+  }
+
+  return { kind: 'empty' };
 }
 
 /** Regime do ano mais recente, mapeado para opções do cadastro. */
@@ -87,18 +124,11 @@ export function getRegimeTributarioAtual(
   regimeTributario: string | null,
   regimeHistorico: string | null,
 ): string {
-  const parsed = parseRegimeHistorico(regimeHistorico || regimeTributario);
+  const display = resolveRegimeDisplay(regimeTributario, regimeHistorico);
   let raw = '';
-
-  if (Array.isArray(parsed) && parsed.length) {
-    raw = parsed[0].val;
-  } else if (typeof parsed === 'string') {
-    raw = normalizeRegimeVal(parsed);
-  } else if (regimeTributario?.trim()) {
-    raw = normalizeRegimeVal(regimeTributario);
-  }
-
-  if (!raw) return '';
+  if (display.kind === 'timeline') raw = display.entries[0]?.val ?? '';
+  else if (display.kind === 'current') raw = display.label;
+  if (!raw || raw === 'Lucro Real ou Presumido') return '';
 
   const allowed = REGIMES_TRIBUTARIOS as readonly string[];
   const exact = allowed.find((r) => r.toLowerCase() === raw.toLowerCase());
