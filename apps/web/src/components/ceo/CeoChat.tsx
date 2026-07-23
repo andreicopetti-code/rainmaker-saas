@@ -6,7 +6,7 @@ import '@/app/ceo/ceo.css';
 import { askCeo, type AiProvider, type ChatMessage, type CeoPageData } from '@/app/ceo/actions';
 import { APP_AI_AVATAR_LABEL } from '@/lib/brand';
 import type { ChipFocus } from '@/lib/ceo/context';
-import { resolveDealId as matchDealId } from '@/lib/ceo/deal-links';
+import { resolveDealId as matchDealId, stripDealIdMarkers } from '@/lib/ceo/deal-links';
 import {
   buildStoredChallenge,
   loadStoredChallenge,
@@ -134,8 +134,11 @@ function escapeHtml(text: string) {
 }
 
 function applyInlineMarkdown(text: string) {
-  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return escapeHtml(stripDealIdMarkers(text)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
+
+/** Optional trailing [id:uuid] after a bold company name (grounding marker). */
+const DEAL_ID_SUFFIX = String.raw`(\s*\[id:\s*[0-9a-f-]{36}\])?`;
 
 type DealResolver = (company: string) => string | null;
 
@@ -147,7 +150,7 @@ function renderDealCard(
   resolveDealId?: DealResolver,
 ) {
   const dealId = resolveDealId?.(company) ?? null;
-  const displayCompany = company.replace(/\[id:\s*[0-9a-f-]{36}\]/gi, '').trim() || company;
+  const displayCompany = stripDealIdMarkers(company) || company;
   const numHtml = num
     ? `<span class="ceo-card-num">${escapeHtml(num)}</span>`
     : '<span class="ceo-card-dot" aria-hidden="true"></span>';
@@ -315,15 +318,17 @@ function renderLines(lines: string[], lastSection: string, resolveDealId?: DealR
   const parts: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const titleMatch = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*$/);
+    const titleMatch = line.match(new RegExp(`^(\\d+)\\.\\s+\\*\\*(.+?)\\*\\*${DEAL_ID_SUFFIX}$`, 'i'));
     if (titleMatch && lines[i + 1] && lines[i + 2] && /^→\s+/.test(lines[i + 2])) {
-      parts.push(renderDealCard(titleMatch[1], titleMatch[2], lines[i + 1], lines[i + 2].replace(/^→\s+/, ''), resolveDealId));
+      const company = `${titleMatch[2]}${titleMatch[3] ?? ''}`.trim();
+      parts.push(renderDealCard(titleMatch[1], company, lines[i + 1], lines[i + 2].replace(/^→\s+/, ''), resolveDealId));
       i += 2;
       continue;
     }
-    const bulletTitleMatch = line.match(/^•\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
+    const bulletTitleMatch = line.match(new RegExp(`^•\\s+\\*\\*(.+?)\\*\\*${DEAL_ID_SUFFIX}\\s*[—–-]\\s*(.+)$`, 'i'));
     if (bulletTitleMatch && lines[i + 1] && /^→\s+/.test(lines[i + 1])) {
-      parts.push(renderDealCard(null, bulletTitleMatch[1], bulletTitleMatch[2], lines[i + 1].replace(/^→\s+/, ''), resolveDealId));
+      const company = `${bulletTitleMatch[1]}${bulletTitleMatch[2] ?? ''}`.trim();
+      parts.push(renderDealCard(null, company, bulletTitleMatch[3], lines[i + 1].replace(/^→\s+/, ''), resolveDealId));
       i += 1;
       continue;
     }
@@ -333,9 +338,13 @@ function renderLines(lines: string[], lastSection: string, resolveDealId?: DealR
 }
 
 function renderBlock(block: string, lastSection: string, resolveDealId?: DealResolver) {
-  const dealCardMatch = block.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*\n([\s\S]+?)\n→\s*([\s\S]+)$/);
+  const dealCardMatch = block.match(new RegExp(
+    `^(\\d+)\\.\\s+\\*\\*(.+?)\\*\\*${DEAL_ID_SUFFIX}\\s*\\n([\\s\\S]+?)\\n→\\s*([\\s\\S]+)$`,
+    'i',
+  ));
   if (dealCardMatch) {
-    return renderDealCard(dealCardMatch[1], dealCardMatch[2], dealCardMatch[3], dealCardMatch[4], resolveDealId);
+    const company = `${dealCardMatch[2]}${dealCardMatch[3] ?? ''}`.trim();
+    return renderDealCard(dealCardMatch[1], company, dealCardMatch[4], dealCardMatch[5], resolveDealId);
   }
 
   const numMatch = block.match(/^(\d+)\.\s+([\s\S]+)$/);
@@ -349,9 +358,13 @@ function renderBlock(block: string, lastSection: string, resolveDealId?: DealRes
     );
   }
 
-  const bulletArrowMatch = block.match(/^•\s+\*\*(.+?)\*\*\s*[—–-]\s*([\s\S]+?)\n→\s*([\s\S]+)$/);
+  const bulletArrowMatch = block.match(new RegExp(
+    `^•\\s+\\*\\*(.+?)\\*\\*${DEAL_ID_SUFFIX}\\s*[—–-]\\s*([\\s\\S]+?)\\n→\\s*([\\s\\S]+)$`,
+    'i',
+  ));
   if (bulletArrowMatch) {
-    return renderDealCard(null, bulletArrowMatch[1], bulletArrowMatch[2], bulletArrowMatch[3], resolveDealId);
+    const company = `${bulletArrowMatch[1]}${bulletArrowMatch[2] ?? ''}`.trim();
+    return renderDealCard(null, company, bulletArrowMatch[3], bulletArrowMatch[4], resolveDealId);
   }
 
   const bulletMatch = block.match(/^•\s+([\s\S]+)$/);
@@ -370,7 +383,7 @@ function renderBlock(block: string, lastSection: string, resolveDealId?: DealRes
 }
 
 function renderLine(line: string, lastSection: string, resolveDealId?: DealResolver) {
-  if (/^(\d+)\.\s+\*\*(.+?)\*\*$/.test(line)) {
+  if (new RegExp(`^(\\d+)\\.\\s+\\*\\*(.+?)\\*\\*${DEAL_ID_SUFFIX}$`, 'i').test(line)) {
     return `<p class="ceo-para">${applyInlineMarkdown(line)}</p>`;
   }
 

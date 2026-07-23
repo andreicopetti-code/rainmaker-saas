@@ -11,6 +11,11 @@ function idMarkerRe(flags = 'i'): RegExp {
   return new RegExp(`\\[id:\\s*(${UUID_SRC})\\]`, flags);
 }
 
+/** Remove [id:uuid] markers from user-visible text (keep raw content for resolveDealId). */
+export function stripDealIdMarkers(text: string): string {
+  return text.replace(idMarkerRe('gi'), '').replace(/[^\S\n]{2,}/g, ' ').trim();
+}
+
 const GENERIC_PHRASE_RE =
   /\b(acompanhar de perto|verificar andamento|entrar em contato)\b/gi;
 
