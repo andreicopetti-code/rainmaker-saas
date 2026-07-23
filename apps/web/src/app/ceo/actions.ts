@@ -115,8 +115,13 @@ async function callProxyAi(
       return { ok: false, error: toUserFacingAiError('groq_api_key') };
     }
 
-    const retrySec = parseRetrySeconds(msg);
-    if (retrySec && attempt < maxAttempts) {
+    const isRateLimit =
+      res.status === 429 ||
+      data?.rate_limited === true ||
+      /rate[_\s-]?limit|tokens per minute|\btpm\b/i.test(msg);
+
+    if (isRateLimit && attempt < maxAttempts) {
+      const retrySec = parseRetrySeconds(msg) ?? attempt * 5;
       await new Promise((resolve) => setTimeout(resolve, retrySec * 1000));
       continue;
     }

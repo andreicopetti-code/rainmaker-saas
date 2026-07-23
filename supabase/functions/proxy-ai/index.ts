@@ -96,10 +96,12 @@ Deno.serve(async (req: Request) => {
         upstream.toLowerCase().includes('rate limit') ||
         upstream.toLowerCase().includes('tokens per minute') ||
         upstreamRes.status === 429
+      // Preserve upstream text (e.g. "try again in 2.5s") so askCeo can backoff-retry.
+      // Keep a stable rate_limit token for client detection when upstream is empty.
       const error = isRateLimit
-        ? 'rate_limit'
+        ? (upstream || 'rate_limit')
         : upstream || `upstream_error_${upstreamRes.status}`
-      return json({ error, provider, model }, upstreamRes.status)
+      return json({ error, provider, model, rate_limited: isRateLimit }, upstreamRes.status)
     }
 
     return new Response(JSON.stringify({ ...data, provider, model }), {
