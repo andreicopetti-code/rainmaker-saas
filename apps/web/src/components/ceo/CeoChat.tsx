@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import '@/app/ceo/ceo.css';
-import { askCeo, type ChatMessage, type CeoPageData } from '@/app/ceo/actions';
+import { askCeo, type AiProvider, type ChatMessage, type CeoPageData } from '@/app/ceo/actions';
+import { APP_AI_AVATAR_LABEL } from '@/lib/brand';
 import type { ChipFocus } from '@/lib/ceo/context';
 import { resolveDealId as matchDealId } from '@/lib/ceo/deal-links';
 import {
@@ -18,6 +19,18 @@ import {
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string };
 type Props   = { pageData: CeoPageData };
+
+const AI_PROVIDER_STORAGE_KEY = 'rm-ai-provider';
+
+function loadAiProvider(): AiProvider {
+  try {
+    const raw = localStorage.getItem(AI_PROVIDER_STORAGE_KEY);
+    if (raw === 'groq' || raw === 'deepseek') return raw;
+  } catch {
+    /* ignore */
+  }
+  return 'groq';
+}
 
 // ── Action Groups ──────────────────────────────────────────────────────────────
 
@@ -134,6 +147,7 @@ function renderDealCard(
   resolveDealId?: DealResolver,
 ) {
   const dealId = resolveDealId?.(company) ?? null;
+  const displayCompany = company.replace(/\[id:\s*[0-9a-f-]{36}\]/gi, '').trim() || company;
   const numHtml = num
     ? `<span class="ceo-card-num">${escapeHtml(num)}</span>`
     : '<span class="ceo-card-dot" aria-hidden="true"></span>';
@@ -149,7 +163,7 @@ function renderDealCard(
     `<div class="ceo-card${linkClass}"${dataAttr}>` +
     `${numHtml}` +
     `<div class="ceo-card-body">` +
-    `<div class="ceo-card-title">${applyInlineMarkdown(company)}</div>` +
+    `<div class="ceo-card-title">${applyInlineMarkdown(displayCompany)}</div>` +
     metaHtml +
     `<div class="ceo-card-action">${applyInlineMarkdown(action)}</div>` +
     openHtml +
@@ -427,6 +441,8 @@ function CommandBar({
   onChallenge,
   loading,
   challengeLoading,
+  aiProvider,
+  onAiProviderChange,
 }: {
   pageData: CeoPageData;
   aiUsed: number;
@@ -436,6 +452,8 @@ function CommandBar({
   onChallenge: () => void;
   loading: boolean;
   challengeLoading: boolean;
+  aiProvider: AiProvider;
+  onAiProviderChange: (provider: AiProvider) => void;
 }) {
   const { context, classif, health } = pageData;
   const { resumo } = context;
@@ -486,10 +504,23 @@ function CommandBar({
 
       <div className="ceo-cb-sep" />
 
-      {/* Quota + briefing */}
+      {/* Quota + IA provider + briefing */}
       <span className={`ceo-quota${quotaExceeded ? ' exceeded' : ''}`}>
         {aiUsed}/{aiLimit} req/mês
       </span>
+
+      <label className="ceo-provider-select" title="Provedor de IA (teste)">
+        <span className="ceo-provider-select-label">IA</span>
+        <select
+          value={aiProvider}
+          onChange={(e) => onAiProviderChange(e.target.value as AiProvider)}
+          disabled={loading || challengeLoading}
+          aria-label="Provedor de IA"
+        >
+          <option value="groq">Groq</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </label>
 
       <button
         className="ceo-challenge-btn"
@@ -641,7 +672,7 @@ function MessageBubble({
   return (
     <div ref={innerRef} className={`ceo-msg${isUser ? ' user' : ''}`}>
       <div className={`ceo-msg-avatar ${isUser ? 'user' : 'ai'}`}>
-        {isUser ? 'Você' : 'CEO'}
+        {isUser ? 'Você' : APP_AI_AVATAR_LABEL}
       </div>
       <div className="ceo-msg-bubble" ref={bubbleRef}>
         {isUser
@@ -658,7 +689,7 @@ function MessageBubble({
 function TypingIndicator() {
   return (
     <div className="ceo-msg">
-      <div className="ceo-msg-avatar ai">CEO</div>
+      <div className="ceo-msg-avatar ai">{APP_AI_AVATAR_LABEL}</div>
       <div className="ceo-msg-bubble">
         <div className="ceo-typing">
           <div className="ceo-typing-dot" />
@@ -681,6 +712,7 @@ export function CeoChat({ pageData }: Props) {
   const [quotaExceeded, setQuotaExceeded] = useState(pageData.quotaExceeded);
   const [activeChallenge, setActiveChallenge] = useState<StoredChallenge | null>(null);
   const [challengeLoading, setChallengeLoading] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AiProvider>('groq');
   const [isPending, startTransition] = useTransition();
   // useRef prevents double-fire in React StrictMode (dev) unlike useState
   const briefingDone    = useRef(false);
@@ -688,6 +720,23 @@ export function CeoChat({ pageData }: Props) {
   const bottomRef       = useRef<HTMLDivElement>(null);
   const lastUserMsgRef  = useRef<HTMLDivElement>(null);
   const inputRef        = useRef<HTMLTextAreaElement>(null);
+  const aiProviderRef   = useRef<AiProvider>('groq');
+
+  useEffect(() => {
+    const saved = loadAiProvider();
+    setAiProvider(saved);
+    aiProviderRef.current = saved;
+  }, []);
+
+  function changeAiProvider(next: AiProvider) {
+    setAiProvider(next);
+    aiProviderRef.current = next;
+    try {
+      localStorage.setItem(AI_PROVIDER_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   const resolveDealId = useCallback(
     (company: string) => matchDealId(company, pageData.deals),
@@ -758,7 +807,7 @@ export function CeoChat({ pageData }: Props) {
   function runBriefing() {
     setMessages([]);
     startTransition(async () => {
-      const result = await askCeo([], 'briefing');
+      const result = await askCeo([], 'briefing', null, aiProviderRef.current);
       if ('error' in result) {
         addMessage('assistant', result.error);
       } else {
@@ -778,7 +827,7 @@ export function CeoChat({ pageData }: Props) {
     setChallengeLoading(true);
     startTransition(async () => {
       try {
-        const result = await askCeo([], 'challenge');
+        const result = await askCeo([], 'challenge', null, aiProviderRef.current);
         if ('error' in result) {
           addMessage('assistant', result.error);
           return;
@@ -826,7 +875,12 @@ export function CeoChat({ pageData }: Props) {
     addMessage('user', userMsg);
     const history = getHistory();
     startTransition(async () => {
-      const result = await askCeo([...history, { role: 'user', content: userMsg }], 'chat', focus);
+      const result = await askCeo(
+        [...history, { role: 'user', content: userMsg }],
+        'chat',
+        focus,
+        aiProviderRef.current,
+      );
       if ('error' in result) addMessage('assistant', result.error);
       else {
         addMessage('assistant', result.content);
@@ -859,6 +913,8 @@ export function CeoChat({ pageData }: Props) {
         onChallenge={() => runChallenge()}
         loading={isPending}
         challengeLoading={challengeLoading}
+        aiProvider={aiProvider}
+        onAiProviderChange={changeAiProvider}
       />
 
       {activeChallenge && (

@@ -110,6 +110,7 @@ function buildCompactDealLine(o: OppRow, stageConfig: FunnelStageConfig[]): stri
   const tier = getTier(getTierId(o));
   const nome = getNomePrimario(o);
   const parts: string[] = [
+    `id=${o.id}`,
     nome,
     tier ? `Classif: ${tier.label}` : '⚠ sem classificação',
     getStageLabel(o.stage, stageConfig),
@@ -271,7 +272,7 @@ function buildTopClosingCandidates(
           : c.valorDeferred
             ? 'valor pós-fechamento'
             : 'sem valor cadastrado';
-        return `${i + 1}. ${c.nome} | ${c.tier} | ${c.etapa} | ${valor}`;
+        return `${i + 1}. id=${c.id} | ${c.nome} | ${c.tier} | ${c.etapa} | ${valor}`;
       })
       .join('\n');
   }
@@ -304,7 +305,7 @@ function buildTopClosingCandidates(
       const bloqueioStr = bloqueios.length ? ` | bloqueio: ${bloqueios.join(', ')}` : '';
       const valorNota =
         !(o.value ?? 0) && isValueDeferred(o.custom_fields) ? ' | valor pós-fechamento' : '';
-      return `${i + 1}. ${nome} | ${tier} | ${etapa}${valorNota}${bloqueioStr} → ${pb.proximoMovimento}`;
+      return `${i + 1}. id=${o.id} | ${nome} | ${tier} | ${etapa}${valorNota}${bloqueioStr} → ${pb.proximoMovimento}`;
     })
     .join('\n');
 }
@@ -313,7 +314,7 @@ function buildTopRisks(classif: ReturnType<typeof classifyDeals>, limit = 3): st
   if (!classif.risco.length) return 'Nenhum risco crítico pré-classificado além dos alertas de cadastro.';
   return classif.risco
     .slice(0, limit)
-    .map((c) => `• ${c.nome} | ${c.tier} | ${c.etapa}`)
+    .map((c) => `• id=${c.id} | ${c.nome} | ${c.tier} | ${c.etapa}`)
     .join('\n');
 }
 
@@ -465,6 +466,7 @@ export function buildDealsParados(opps: OppRow[], stageConfig: FunnelStageConfig
   const active = opps.filter((o) => isActiveStage(o.stage, stageConfig));
   return active
     .map((o) => ({
+      id: o.id,
       nome: getNomePrimario(o),
       contato: o.contact_name ?? null,
       setor: o.contact_setor ?? null,
@@ -490,6 +492,7 @@ export function classifyDeals(opps: OppRow[], stageConfig: FunnelStageConfig[]) 
   const paradoMap = new Map(parados.map((p) => [p.nome, p.diasSemAtividade]));
 
   type DealRef = {
+    id: string;
     nome: string;
     etapa: string;
     tier: string;
@@ -513,6 +516,7 @@ export function classifyDeals(opps: OppRow[], stageConfig: FunnelStageConfig[]) 
     const valorAlto = (o.value ?? 0) >= 100_000;
     const prioridadeAlta = tierVal <= 1 || valorAlto;
     const ref: DealRef = {
+      id: o.id,
       nome: getNomePrimario(o),
       etapa: getStageLabel(o.stage, stageConfig),
       tier: getTier(getTierId(o))?.label ?? 'Não definido',
@@ -525,9 +529,8 @@ export function classifyDeals(opps: OppRow[], stageConfig: FunnelStageConfig[]) 
       result.fechar.push(ref);
     } else if ((diasParado >= 14 && prioridadeAlta) || diasParado >= 21 || (emEtapaDeFechamento && !hasFutureAppt(o) && prioridadeAlta)) {
       result.risco.push(ref);
-    } else if ((dias >= 60 && tierVal >= 3) || diasParado >= 45) {
-      result.risco.push(ref);
-    } else if ((dias >= 60 && tierVal >= 3) || diasParado >= 45) {
+    } else if ((dias >= 45 && tierVal >= 3) || dias >= 60) {
+      // Alinhado ao filtro compacto de "descartar" (antes: ramo morto / unreachable).
       result.descartar.push(ref);
     } else {
       result.cultivar.push(ref);
@@ -627,9 +630,11 @@ REGRAS DE LINGUAGEM — OBRIGATÓRIAS
   - "overview" → "visão geral"
 • Tom: direto, executivo, assertivo — como um sócio que conhece o negócio
 • Cite nomes de empresas, classificação, dias parado, etapa do funil e valor R$ quando disponível
+• Cada negócio no contexto começa com id=<uuid>. Ao citar um negócio, inclua [id:<uuid>] logo após o nome (ex.: **Acme** [id:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee]). Use SOMENTE ids da lista — nunca invente.
+• EVIDÊNCIA OBRIGATÓRIA: toda recomendação sobre um negócio deve ancorar em pelo menos 1 dado do contexto (etapa, dias parado, compromisso, nota, classificação ou R$). Sem evidência → não invente urgência.
 • Nunca diga "não tenho informações suficientes" — analise o que está disponível
 • Nunca repita os dados brutos na resposta
-• PROIBIDO: "entrar em contato", "verificar andamento", "acompanhar de perto" — seja específico
+• PROIBIDO: "entrar em contato", "verificar andamento", "acompanhar de perto" — seja específico (verbo + canal/próximo passo + prazo)
 • Use linguagem direta: "esse negócio está esfriando", "risco real de perda", "concentração perigosa"
 • Se houver Nota no negócio, USE-A para personalizar a ação
 • Se houver compromisso agendado, leve em conta na análise
@@ -660,12 +665,12 @@ REGRAS DE FORMATAÇÃO — BRIEFING INICIAL
 • PROIBIDO seções duplicadas (não crie "Alertas" e "Qualidade de dados" separados — use 📋 CADASTRO)
 
 FORMATO OBRIGATÓRIO — cada negócio em 🔥 (3 linhas, sem travessões):
-1. **NOME DA EMPRESA**
+1. **NOME DA EMPRESA** [id:<uuid>]
 Etapa · Classificação
 → Movimento concreto em uma frase.
 
 FORMATO OBRIGATÓRIO — cada risco em ⚠️ (2 linhas):
-• **NOME** — causa do risco em poucas palavras
+• **NOME** [id:<uuid>] — causa do risco em poucas palavras
 → Ação corretiva em uma frase.
 
 • 🎯 AÇÕES IMEDIATAS: 3 a 5 bullets — UMA ação por linha (empresa + verbo + prazo). PROIBIDO ponto e vírgula ou texto corrido
@@ -697,16 +702,16 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos)
 
 🔥 FECHAR AGORA
 
-1. **NOME EXATO DA EMPRESA**
+1. **NOME EXATO DA EMPRESA** [id:<uuid>]
 Etapa · Classificação · próximo compromisso (ou "sem agenda")
 → Ação 1; Ação 2; Ação 3 — tudo em UMA linha após →, com prazos até sexta
 
-2. **SEGUNDA EMPRESA**
+2. **SEGUNDA EMPRESA** [id:<uuid>]
 Etapa · Classificação · ...
 → ...
 
 Regras:
-• Máximo 3 negócios; nomes EXATOS da lista NEGÓCIOS ATIVOS (entre **)
+• Máximo 3 negócios; nomes EXATOS da lista NEGÓCIOS ATIVOS (entre **) + [id:<uuid>] do contexto
 • Cada negócio = exatamente 3 linhas (título numerado, meta, → ações)
 • PROIBIDO tabelas markdown (| col |), cabeçalhos ### e listas numeradas soltas de ações`;
 }
@@ -717,10 +722,10 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 
 ⚠️ EM RISCO
 
-• **NOME EXATO** — causa do risco em poucas palavras
+• **NOME EXATO** [id:<uuid>] — causa do risco em poucas palavras
 → Ação corretiva com prazo até DD/MM
 
-• **NOME EXATO** — causa
+• **NOME EXATO** [id:<uuid>] — causa
 → Ação corretiva
 
 Regras: máx. 5 negócios; PROIBIDO tabelas markdown e cabeçalhos ###; cada risco = 2 linhas (bullet + →)`;
@@ -732,7 +737,7 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 
 ⏰ REATIVAR PARADOS
 
-1. **NOME EXATO**
+1. **NOME EXATO** [id:<uuid>]
 Etapa · X dias parado · Classificação
 → Plano de reativação em UMA linha (2-3 passos com prazo)
 
@@ -745,7 +750,7 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 
 🗑️ DESCARTAR DA CARTEIRA
 
-• **NOME EXATO** — motivo objetivo (dados do funil)
+• **NOME EXATO** [id:<uuid>] — motivo objetivo (dados do funil)
 → Como liberar foco (arquivar/perder + próximo passo)
 
 Regras: PROIBIDO tabelas markdown e ###; cada item = 2 linhas (bullet + →)`;
@@ -813,7 +818,7 @@ export function buildSystemPrompt(
 
   const paradosSection = dealsParados.length > 0
     ? dealsParados.map((d) =>
-        `${d.nome} | ${d.tier} | ${d.etapa} | ${d.diasSemAtividade}d parado${d.valor ? ` | R$ ${d.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''}${d.nota ? ` | Nota: ${d.nota.slice(0, 80)}` : ''}`,
+        `id=${d.id} | ${d.nome} | ${d.tier} | ${d.etapa} | ${d.diasSemAtividade}d parado${d.valor ? ` | R$ ${d.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''}${d.nota ? ` | Nota: ${d.nota.slice(0, 80)}` : ''}`,
       ).join('\n')
     : 'Nenhum negócio parado identificado.';
 
@@ -844,7 +849,7 @@ CLASSIFICAÇÃO ATUAL
 ═══════════════════════════════
 NEGÓCIOS ATIVOS${chipFocus ? ` (foco: ${chipFocus})` : ''}
 ═══════════════════════════════
-(EMPRESA | CLASSIF | ETAPA | dias parado | Próx compromisso | Prob | Fecha | R$ | Nota)
+(id | EMPRESA | CLASSIF | ETAPA | dias parado | Próx compromisso | Prob | Fecha | R$ | Nota)
 ${dealsSection}
 
 ═══════════════════════════════
@@ -871,17 +876,17 @@ export function buildBriefingPrompt(
   compromissosAtrasados = 0,
 ) {
   const classifDetalhado = {
-    fecharAgora: classif.fechar.map((c) => ({ nome: c.nome, etapa: c.etapa, tier: c.tier, valor: c.valor, nota: c.nota })),
-    emRisco: classif.risco.map((c) => ({ nome: c.nome, etapa: c.etapa, tier: c.tier, valor: c.valor, nota: c.nota })),
+    fecharAgora: classif.fechar.map((c) => ({ id: c.id, nome: c.nome, etapa: c.etapa, tier: c.tier, valor: c.valor, nota: c.nota })),
+    emRisco: classif.risco.map((c) => ({ id: c.id, nome: c.nome, etapa: c.etapa, tier: c.tier, valor: c.valor, nota: c.nota })),
     cultivar: classif.cultivar.length,
-    descartar: classif.descartar.map((c) => ({ nome: c.nome, etapa: c.etapa })),
+    descartar: classif.descartar.map((c) => ({ id: c.id, nome: c.nome, etapa: c.etapa })),
   };
 
   const alerts = buildDataQualityAlerts(opps, stageConfig);
   const dealsCompact = buildDealsCompact(opps, null, stageConfig);
   const paradosCompact = dealsParados.length > 0
     ? dealsParados.map((d) =>
-        `${d.nome} | ${d.tier} | ${d.etapa} | ${d.diasSemAtividade}d${d.valor ? ` | R$ ${d.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''}${d.nota ? ` | Nota: ${d.nota.slice(0, 80)}` : ''}`,
+        `id=${d.id} | ${d.nome} | ${d.tier} | ${d.etapa} | ${d.diasSemAtividade}d${d.valor ? ` | R$ ${d.valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''}${d.nota ? ` | Nota: ${d.nota.slice(0, 80)}` : ''}`,
       ).join('\n')
     : 'Nenhum negócio parado.';
 
@@ -916,7 +921,7 @@ ${formatDataQualitySection(alerts, compromissosAtrasados)}
 ═══════════════════════════════
 TODOS OS NEGÓCIOS ATIVOS
 ═══════════════════════════════
-(EMPRESA | CLASSIF | ETAPA | dias parado | Próx compromisso | Prob | Fecha | R$ | Nota)
+(id | EMPRESA | CLASSIF | ETAPA | dias parado | Próx compromisso | Prob | Fecha | R$ | Nota)
 ${dealsCompact}
 
 ═══════════════════════════════

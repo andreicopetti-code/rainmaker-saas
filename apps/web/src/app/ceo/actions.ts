@@ -21,11 +21,14 @@ import {
 } from '@/lib/ceo/context';
 
 import { suggestChallengeDeadlineLabel } from '@/lib/ceo/challenge';
-import { buildDealLinks, type DealLink } from '@/lib/ceo/deal-links';
+import { buildDealLinks, groundAiResponse, type DealLink } from '@/lib/ceo/deal-links';
 
 export type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
 export type CeoAskMode = 'chat' | 'briefing' | 'challenge';
+
+/** Provedores de IA suportados pelo proxy-ai. Default: Groq (não confundir com xAI Grok). */
+export type AiProvider = 'deepseek' | 'groq';
 
 export type AskResult =
   | {
@@ -71,6 +74,7 @@ async function callProxyAi(
   messages: ChatMessage[],
   maxAttempts = 3,
   temperature = 0.4,
+  opts: { provider?: 'groq' | 'deepseek'; model?: string } = {},
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
   let lastRaw = '';
 
@@ -84,7 +88,12 @@ async function callProxyAi(
           Authorization: `Bearer ${token}`,
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
-        body: JSON.stringify({ messages, temperature }),
+        body: JSON.stringify({
+          messages,
+          temperature,
+          provider: opts.provider,
+          model: opts.model,
+        }),
       });
     } catch {
       return {
@@ -102,7 +111,7 @@ async function callProxyAi(
     const msg = typeof data?.error === 'string' ? data.error : `Erro ${res.status}`;
     lastRaw = msg;
 
-    if (msg.includes('GROQ_API_KEY')) {
+    if (msg.includes('GROQ_API_KEY') || msg.includes('DEEPSEEK_API_KEY')) {
       return { ok: false, error: toUserFacingAiError('groq_api_key') };
     }
 
@@ -335,6 +344,7 @@ export async function askCeo(
   history: ChatMessage[],
   mode: CeoAskMode = 'chat',
   chipFocus: ChipFocus = null,
+  provider: AiProvider = 'groq',
 ): Promise<AskResult> {
   try {
     const {
@@ -395,8 +405,20 @@ export async function askCeo(
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/proxy-ai`;
     const temperature =
-      mode === 'chat' && chipFocus ? 0.3 : mode === 'chat' ? 0.35 : 0.4;
-    const proxyResult = await callProxyAi(functionUrl, token, finalMessages, 3, temperature);
+      mode === 'briefing'
+        ? 0.25
+        : mode === 'challenge'
+          ? 0.3
+          : chipFocus
+            ? 0.3
+            : 0.35;
+    const resolvedProvider: AiProvider = provider === 'deepseek' ? 'deepseek' : 'groq';
+    const model =
+      resolvedProvider === 'deepseek' ? 'deepseek-v4-flash' : 'openai/gpt-oss-120b';
+    const proxyResult = await callProxyAi(functionUrl, token, finalMessages, 3, temperature, {
+      provider: resolvedProvider,
+      model,
+    });
 
     if (!proxyResult.ok) {
       return { error: proxyResult.error };
@@ -404,13 +426,16 @@ export async function askCeo(
 
     const data = proxyResult.data;
     const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
-    const content: string = choices?.[0]?.message?.content ?? 'Sem resposta.';
+    const rawContent: string = choices?.[0]?.message?.content ?? 'Sem resposta.';
+    const content = groundAiResponse(rawContent, buildDealLinks(opps));
     const usage = data.usage as { prompt_tokens: number; completion_tokens: number } | undefined;
+    const usedModel =
+      (typeof data.model === 'string' && data.model) || model;
 
     await supabase.from('ai_requests').insert({
       organization_id: orgId,
       user_id: user.id,
-      model: 'openai/gpt-oss-120b',
+      model: usedModel,
       prompt_tokens: usage?.prompt_tokens ?? null,
       completion_tokens: usage?.completion_tokens ?? null,
     });

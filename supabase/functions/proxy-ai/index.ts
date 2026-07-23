@@ -1,7 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const GROQ_API_URL  = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_MODEL = 'openai/gpt-oss-120b'
+type Provider = 'groq' | 'deepseek'
+
+const PROVIDERS: Record<
+  Provider,
+  { url: string; keyEnv: string; defaultModel: string }
+> = {
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    keyEnv: 'GROQ_API_KEY',
+    defaultModel: 'openai/gpt-oss-120b',
+  },
+  deepseek: {
+    url: 'https://api.deepseek.com/chat/completions',
+    keyEnv: 'DEEPSEEK_API_KEY',
+    defaultModel: 'deepseek-v4-flash',
+  },
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,45 +47,62 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json()
-    const { messages, model = DEFAULT_MODEL, temperature = 0.4 } = body as {
+    const {
+      messages,
+      temperature = 0.4,
+      provider: bodyProvider,
+      model: bodyModel,
+    } = body as {
       messages: { role: string; content: string }[]
       model?: string
       temperature?: number
+      provider?: Provider
     }
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return json({ error: 'messages inválido' }, 400)
     }
 
-    const groqKey = Deno.env.get('GROQ_API_KEY')
-    if (!groqKey) {
-      return json({ error: 'Serviço de IA indisponível' }, 500)
+    const envProvider = (Deno.env.get('AI_PROVIDER') || '').toLowerCase()
+    const provider: Provider =
+      bodyProvider === 'deepseek' || bodyProvider === 'groq'
+        ? bodyProvider
+        : envProvider === 'deepseek'
+          ? 'deepseek'
+          : 'groq'
+
+    const cfg = PROVIDERS[provider]
+    const apiKey = Deno.env.get(cfg.keyEnv)
+    if (!apiKey) {
+      return json({ error: `${cfg.keyEnv} não configurada no servidor` }, 500)
     }
 
-    const groqRes = await fetch(GROQ_API_URL, {
+    const model = bodyModel?.trim() || cfg.defaultModel
+
+    const upstreamRes = await fetch(cfg.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${groqKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ model, messages, max_tokens: 1800, temperature }),
     })
 
-    const data = await groqRes.json()
+    const data = await upstreamRes.json()
 
-    if (!groqRes.ok) {
+    if (!upstreamRes.ok) {
       const upstream = typeof data?.error?.message === 'string' ? data.error.message : ''
       const isRateLimit =
         upstream.toLowerCase().includes('rate limit') ||
         upstream.toLowerCase().includes('tokens per minute') ||
-        groqRes.status === 429
+        upstreamRes.status === 429
       const error = isRateLimit
         ? 'rate_limit'
-        : upstream || `upstream_error_${groqRes.status}`
-      return json({ error }, groqRes.status)
+        : upstream || `upstream_error_${upstreamRes.status}`
+      return json({ error, provider, model }, upstreamRes.status)
     }
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ ...data, provider, model }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: unknown) {

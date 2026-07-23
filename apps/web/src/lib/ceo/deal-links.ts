@@ -4,6 +4,16 @@ export type DealLink = {
   title: string;
 };
 
+const UUID_SRC =
+  '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+function idMarkerRe(flags = 'i'): RegExp {
+  return new RegExp(`\\[id:\\s*(${UUID_SRC})\\]`, flags);
+}
+
+const GENERIC_PHRASE_RE =
+  /\b(acompanhar de perto|verificar andamento|entrar em contato)\b/gi;
+
 export function buildDealLinks(
   opps: Array<{
     id: string;
@@ -22,6 +32,8 @@ export function buildDealLinks(
 function normalizeDealName(value: string): string {
   return value
     .replace(/\*\*/g, '')
+    .replace(idMarkerRe('gi'), '')
+    .replace(new RegExp(`id=\\s*${UUID_SRC}`, 'gi'), '')
     .trim()
     .toLowerCase()
     .normalize('NFD')
@@ -31,10 +43,18 @@ function normalizeDealName(value: string): string {
     .trim();
 }
 
-/** Resolve funnel deal id from company name shown in CEO cards. */
-export function resolveDealId(company: string, deals: DealLink[]): string | null {
+function extractIdMarker(text: string): string | null {
+  const m = text.match(idMarkerRe('i'));
+  return m?.[1]?.toLowerCase() ?? null;
+}
+
+function dealsById(deals: DealLink[]): Map<string, DealLink> {
+  return new Map(deals.map((d) => [d.id.toLowerCase(), d]));
+}
+
+function resolveByName(company: string, deals: DealLink[]): string | null {
   const target = normalizeDealName(company);
-  if (!target || deals.length === 0) return null;
+  if (!target) return null;
 
   for (const deal of deals) {
     const name = normalizeDealName(deal.name);
@@ -50,4 +70,49 @@ export function resolveDealId(company: string, deals: DealLink[]): string | null
   }
 
   return null;
+}
+
+/** Resolve funnel deal id from company name (and optional [id:uuid] marker) shown in CEO cards. */
+export function resolveDealId(company: string, deals: DealLink[]): string | null {
+  if (!company || deals.length === 0) return null;
+
+  const markerId = extractIdMarker(company);
+  if (markerId) {
+    const byId = dealsById(deals).get(markerId);
+    if (byId) return byId.id;
+  }
+
+  return resolveByName(company, deals);
+}
+
+/**
+ * Validate [id:…] markers against loaded deals; rewrite invalid ones via nearby
+ * company name when possible, otherwise strip. Soft-flags a few generic phrases.
+ */
+export function groundAiResponse(content: string, deals: DealLink[]): string {
+  if (!content) return content;
+
+  const known = dealsById(deals);
+
+  let out = content.replace(idMarkerRe('gi'), (full, id: string, offset: number, src: string) => {
+    const key = String(id).toLowerCase();
+    if (known.has(key)) return `[id:${known.get(key)!.id}]`;
+
+    const before = src.slice(Math.max(0, offset - 140), offset);
+    const bold = before.match(/\*\*([^*]+)\*\*\s*$/);
+    const loose = before
+      .split(/\n/)
+      .pop()
+      ?.replace(/^[\s•\-–—\d.]+/, '')
+      .replace(/\s*[—–].*$/, '')
+      .trim();
+    const candidate = (bold?.[1] ?? loose ?? '').trim();
+    const recovered = candidate ? resolveByName(candidate, deals) : null;
+    return recovered ? `[id:${recovered}]` : '';
+  });
+
+  out = out.replace(/[^\S\n]{2,}/g, ' ');
+  out = out.replace(GENERIC_PHRASE_RE, (phrase) => `⚠ genérico: ${phrase}`);
+
+  return out;
 }
