@@ -7,11 +7,14 @@ export type DealLink = {
 const UUID_SRC =
   '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
+/** Full or truncated hex-dash token inside [id:…] (model sometimes cuts the UUID). */
+const ID_TOKEN_SRC = '[0-9a-f][0-9a-f-]*';
+
 function idMarkerRe(flags = 'i'): RegExp {
-  return new RegExp(`\\[id:\\s*(${UUID_SRC})\\]`, flags);
+  return new RegExp(`\\[id:\\s*(${ID_TOKEN_SRC})\\]`, flags);
 }
 
-/** Remove [id:uuid] markers from user-visible text (keep raw content for resolveDealId). */
+/** Remove [id:…] markers from user-visible text (keep raw content for resolveDealId). */
 export function stripDealIdMarkers(text: string): string {
   return text.replace(idMarkerRe('gi'), '').replace(/[^\S\n]{2,}/g, ' ').trim();
 }

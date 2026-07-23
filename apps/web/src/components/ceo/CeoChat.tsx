@@ -137,8 +137,8 @@ function applyInlineMarkdown(text: string) {
   return escapeHtml(stripDealIdMarkers(text)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
-/** Optional trailing [id:uuid] after a bold company name (grounding marker). */
-const DEAL_ID_SUFFIX = String.raw`(\s*\[id:\s*[0-9a-f-]{36}\])?`;
+/** Optional trailing [id:…] after a bold company name (full or truncated UUID). */
+const DEAL_ID_SUFFIX = String.raw`(\s*\[id:\s*[0-9a-f][0-9a-f-]*\])?`;
 
 type DealResolver = (company: string) => string | null;
 
