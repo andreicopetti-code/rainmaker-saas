@@ -50,14 +50,28 @@ function parseRetrySeconds(message: string): number | null {
   return Math.ceil(parseFloat(match[1])) + 1;
 }
 
-/** Mensagens amigáveis — nunca expor provedor (Groq) ou detalhes técnicos ao usuário. */
+/** Mensagens amigáveis — não expor nomes técnicos de API ao usuário. */
 function toUserFacingAiError(raw: string): string {
   const msg = raw.toLowerCase();
 
   if (msg.includes('rate limit') || msg.includes('rate_limit') || msg.includes('tokens per minute') || msg.includes('tpm')) {
     return 'Estamos com alto volume de análises no momento. Aguarde cerca de 1 minuto e tente novamente.';
   }
-  if (msg.includes('groq') || msg.includes('proxy-ai') || msg.includes('groq_api_key')) {
+  if (
+    msg.includes('insufficient') ||
+    msg.includes('balance') ||
+    msg.includes('billing') ||
+    msg.includes('credit') ||
+    msg.includes('payment') ||
+    msg.includes('top up') ||
+    msg.includes('top-up')
+  ) {
+    return 'Créditos da IA Quantum esgotados. Recarregue o saldo da API DeepSeek no painel do provedor, ou use Nexus.';
+  }
+  if (msg.includes('deepseek_api_key')) {
+    return 'A chave da IA Quantum (DeepSeek) não está configurada no servidor. Configure DEEPSEEK_API_KEY ou use Nexus.';
+  }
+  if (msg.includes('groq') || msg.includes('proxy-ai') || msg.includes('groq_api_key') || msg.includes('deepseek')) {
     return 'O RainMaker IA está temporariamente indisponível. Tente novamente em alguns minutos.';
   }
   if (msg.includes('quota') || msg.includes('limit_reached')) {
@@ -68,6 +82,9 @@ function toUserFacingAiError(raw: string): string {
   }
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('conexão') || msg.includes('conectar')) {
     return 'Não foi possível conectar ao RainMaker IA. Verifique sua internet e tente novamente.';
+  }
+  if (msg.includes('empty_content') || msg.includes('sem resposta')) {
+    return 'A IA não retornou conteúdo. Tente novamente ou alterne para Nexus.';
   }
 
   return 'Não foi possível gerar a resposta agora. Tente novamente em instantes.';
@@ -117,7 +134,7 @@ async function callProxyAi(
     lastRaw = msg;
 
     if (msg.includes('GROQ_API_KEY') || msg.includes('DEEPSEEK_API_KEY')) {
-      return { ok: false, error: toUserFacingAiError('groq_api_key') };
+      return { ok: false, error: toUserFacingAiError(msg) };
     }
 
     const isRateLimit =
@@ -448,8 +465,14 @@ export async function askCeo(
     }
 
     const data = proxyResult.data;
-    const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
-    const rawContent: string = choices?.[0]?.message?.content ?? 'Sem resposta.';
+    const choices = data.choices as
+      | Array<{ message?: { content?: string | null; reasoning_content?: string | null } }>
+      | undefined;
+    const message = choices?.[0]?.message;
+    const rawContent = String(message?.content ?? message?.reasoning_content ?? '').trim();
+    if (!rawContent) {
+      return { error: toUserFacingAiError('empty_content') };
+    }
     const content = groundAiResponse(rawContent, buildDealLinks(opps));
     const usage = data.usage as { prompt_tokens: number; completion_tokens: number } | undefined;
     const usedModel =

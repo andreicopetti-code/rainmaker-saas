@@ -534,16 +534,16 @@ function CommandBar({
         {aiUsed}/{aiLimit} req/mês
       </span>
 
-      <label className="ceo-provider-select" title="Provedor de IA (teste)">
+      <label className="ceo-provider-select" title="Agente de IA">
         <span className="ceo-provider-select-label">IA</span>
         <select
           value={aiProvider}
           onChange={(e) => onAiProviderChange(e.target.value as AiProvider)}
           disabled={loading || challengeLoading}
-          aria-label="Provedor de IA"
+          aria-label="Agente de IA"
         >
-          <option value="groq">Groq</option>
-          <option value="deepseek">DeepSeek</option>
+          <option value="groq">Nexus</option>
+          <option value="deepseek">Quantum</option>
         </select>
       </label>
 
@@ -822,12 +822,18 @@ export function CeoChat({ pageData }: Props) {
   function runBriefing() {
     setMessages([]);
     startTransition(async () => {
-      const result = await askCeo([], 'briefing', null, aiProviderRef.current);
-      if ('error' in result) {
-        addMessage('assistant', result.error);
-      } else {
-        addMessage('assistant', result.content);
-        applyQuotaFromResult(result);
+      try {
+        const result = await askCeo([], 'briefing', null, aiProviderRef.current);
+        if ('error' in result) {
+          addMessage('assistant', result.error);
+        } else if (!result.content.trim()) {
+          addMessage('assistant', 'A IA não retornou conteúdo. Tente novamente ou alterne o agente.');
+        } else {
+          addMessage('assistant', result.content);
+          applyQuotaFromResult(result);
+        }
+      } catch {
+        addMessage('assistant', 'Não foi possível gerar a resposta agora. Tente novamente em instantes.');
       }
     });
   }
@@ -847,6 +853,10 @@ export function CeoChat({ pageData }: Props) {
           addMessage('assistant', result.error);
           return;
         }
+        if (!result.content.trim()) {
+          addMessage('assistant', 'A IA não retornou conteúdo. Tente novamente ou alterne o agente.');
+          return;
+        }
 
         const stored = buildStoredChallenge(result.content);
         if (stored) {
@@ -855,6 +865,8 @@ export function CeoChat({ pageData }: Props) {
         }
         addMessage('assistant', result.content);
         applyQuotaFromResult(result);
+      } catch {
+        addMessage('assistant', 'Não foi possível gerar a resposta agora. Tente novamente em instantes.');
       } finally {
         setChallengeLoading(false);
       }
@@ -890,16 +902,23 @@ export function CeoChat({ pageData }: Props) {
     addMessage('user', userMsg);
     const history = getHistory();
     startTransition(async () => {
-      const result = await askCeo(
-        [...history, { role: 'user', content: userMsg }],
-        'chat',
-        focus,
-        aiProviderRef.current,
-      );
-      if ('error' in result) addMessage('assistant', result.error);
-      else {
-        addMessage('assistant', result.content);
-        applyQuotaFromResult(result);
+      try {
+        const result = await askCeo(
+          [...history, { role: 'user', content: userMsg }],
+          'chat',
+          focus,
+          aiProviderRef.current,
+        );
+        if ('error' in result) {
+          addMessage('assistant', result.error);
+        } else if (!result.content.trim()) {
+          addMessage('assistant', 'A IA não retornou conteúdo. Tente novamente ou alterne o agente.');
+        } else {
+          addMessage('assistant', result.content);
+          applyQuotaFromResult(result);
+        }
+      } catch {
+        addMessage('assistant', 'Não foi possível gerar a resposta agora. Tente novamente em instantes.');
       }
     });
     if (inputRef.current) inputRef.current.style.height = 'auto';

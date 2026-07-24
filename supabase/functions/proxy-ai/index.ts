@@ -79,13 +79,25 @@ Deno.serve(async (req: Request) => {
 
     const model = bodyModel?.trim() || cfg.defaultModel
 
+    // DeepSeek V4 defaults to thinking mode. Thinking tokens count against max_tokens;
+    // without disabling it, content often comes back empty and the UI looks like a silent no-op.
+    const payload: Record<string, unknown> = {
+      model,
+      messages,
+      max_tokens: provider === 'deepseek' ? 4096 : 1800,
+      temperature,
+    }
+    if (provider === 'deepseek') {
+      payload.thinking = { type: 'disabled' }
+    }
+
     const upstreamRes = await fetch(cfg.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, messages, max_tokens: 1800, temperature }),
+      body: JSON.stringify(payload),
     })
 
     const data = await upstreamRes.json()
