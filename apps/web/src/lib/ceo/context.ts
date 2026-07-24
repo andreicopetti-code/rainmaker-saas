@@ -46,6 +46,7 @@ export type AgendaEvent = {
 export type ChipFocus =
   | 'fechar' | 'risco' | 'parados' | 'descartar' | 'perdas'
   | 'velocidade' | 'conversao' | 'concentracao' | 'meta' | 'movimentos'
+  | 'visao'
   | null;
 
 const TIER_ORDER: Record<string, number> = { E: 0, G: 1, M: 2, P: 3 };
@@ -212,6 +213,15 @@ function buildDealsCompact(opps: OppRow[], focus: ChipFocus, stageConfig: Funnel
           return !closeDate || (closeDate.getFullYear() === thisMonth.getFullYear() && closeDate.getMonth() === thisMonth.getMonth());
         }),
       );
+      break;
+
+    case 'concentracao':
+      // Maiores valores / prioridade — base para medir concentração de carteira
+      deals = sortByPriority(active).slice(0, 15);
+      break;
+
+    case 'visao':
+      deals = sortByPriority(active).slice(0, 12);
       break;
 
     default:
@@ -756,6 +766,103 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 Regras: PROIBIDO tabelas markdown e ###; cada item = 2 linhas (bullet + →)`;
 }
 
+function buildVisaoAnswerTemplate(): string {
+  return `
+FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos):
+
+📊 VISÃO GERAL
+
+📸 SAÚDE (2–3 linhas no máximo)
+Estado da carteira em linguagem de gerente de vendas: volume ativo, conversão, receita em aberto (só se houver R$ no contexto) e o risco dominante. Sem dump de métricas.
+
+🚧 GARGALO #1
+Um único gargalo (etapa, velocidade, concentração, cadastro ou agenda) com evidência de 1–2 negócios nomeados [id:<uuid>].
+
+🎯 PRIORIDADES DESTA SEMANA (3 a 5)
+1. **NOME EXATO** [id:<uuid>] — O QUÊ | PARA QUEM | ATÉ QUANDO (esta semana)
+2. ...
+
+Regras:
+• Separar diagnóstico (SAÚDE + GARGALO) das ações (PRIORIDADES)
+• Cada prioridade = negócio real + verbo imperativo + canal/próximo compromisso + prazo até sexta
+• Venda complexa: próximo compromisso com stakeholder / proposta / negociação
+• Venda simples: pedir o sim, avançar etapa ou matar
+• PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###
+• PROIBIDO listar o funil inteiro — só o que muda receita esta semana`;
+}
+
+function buildConcentracaoAnswerTemplate(): string {
+  return `
+FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos):
+
+🎯 CONCENTRAÇÃO DE RISCO
+
+📸 DIAGNÓSTICO (2–3 linhas)
+Onde a carteira está concentrada: top negócios no valor aberto, etapa avançada, ou dono/agenda. Se top 2 somam >50% do aberto com R$, diga isso; sem R$, use classificação + etapa.
+
+⚠️ NEGÓCIOS QUE SEGURAM O RESULTADO (máx. 4)
+• **NOME EXATO** [id:<uuid>] — por que a perda dele dói (valor/classif/etapa)
+→ Proteção concreta: O QUÊ | PARA QUEM | ATÉ QUANDO (esta semana)
+
+🔀 DIVERSIFICAR AGORA (2–3 bullets)
+• Ação para reduzir dependência (acelerar #3–#5, reativar parado com potencial, matar zombie que ocupa tempo)
+
+Regras:
+• Priorize impacto de receita se o concentrado cair
+• Cada bullet de proteção = compromisso ou ask específico (não "nutrir relacionamento")
+• Venda complexa: mapear decisor / alinhar proposta / trancar próximo passo
+• Venda simples: prazo de resposta ou kill
+• PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###`;
+}
+
+function buildPerdasAnswerTemplate(): string {
+  return `
+FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos):
+
+📉 PERDAS RECENTES
+
+🔍 PADRÃO (2–4 linhas)
+Por que estamos perdendo: classificação, etapa de saída, setor, falta de agenda ou ciclo longo. Cite evidência dos perdidos na lista — sem inventar motivo.
+
+📋 CASOS (máx. 5)
+• **NOME EXATO** [id:<uuid>] — causa objetiva (dados do funil)
+→ Prevenir repetição OU recuperar (só se houver sinal real de salvage)
+
+🛡 MUDANÇAS NO PROCESSO (2–3 bullets)
+• Regra operacional desta semana (ex.: "todo Médio+ em Proposta com retorno agendado em 48h")
+
+Regras:
+• Separar padrão (diagnóstico) de casos e de ações de processo
+• Preferir prevenção sistêmica a lamentação
+• Se houver salvage: ask claro + prazo; senão, arquivar mentalmente e seguir
+• PROIBIDO "aprender com o erro" genérico, "acompanhar", tabelas markdown e ###`;
+}
+
+function buildMetaAnswerTemplate(): string {
+  return `
+FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos):
+
+🎯 META DO MÊS
+
+📏 GAP (2–3 linhas)
+Onde estamos vs. fechar o mês bem: receita confirmada (se houver), pipeline com Fecha neste mês, e o gap em linguagem concreta. Sem meta formal no contexto: declare a premissa (ex. "fechamento do mês = converter X negócios com Fecha/etapa avançada") — não invente número de meta.
+
+🔥 O QUE MOVE O NÚMERO ESTA SEMANA (3 a 5)
+1. **NOME EXATO** [id:<uuid>]
+Etapa · Fecha (ou "sem data") · Classificação
+→ O QUÊ | PARA QUEM | ATÉ QUANDO — ação que antecipa ou tranca receita neste mês
+
+⚡ SE O GAP NÃO FECHA
+• 1–2 movimentos: trazer deal de fora do mês, matar ilusão, ou renegociar prazo com decisor
+
+Regras:
+• Só negócios que podem virar receita neste mês (ou desbloquear o gap)
+• Cada ação = verbo + canal/compromisso + prazo até sexta
+• Venda complexa: próximo commitment do comprador (aprovação, proposta assinada, comitê)
+• Venda simples: ask de fechamento ou kill até data
+• PROIBIDO "acompanhar pipeline", "ficar de olho na meta", tabelas markdown e ###`;
+}
+
 function buildChatAnswerRules(chipFocus: ChipFocus): string {
   const base = `
 ═══════════════════════════════
@@ -764,7 +871,7 @@ MODO RESPOSTA — PERGUNTA / CHIP (NÃO É BRIEFING)
 • Responda SOMENTE ao que o usuário perguntou — direto ao ponto
 • PROIBIDO usar seções do briefing: ⏰ HOJE, 🧭 DIAGNÓSTICO EXECUTIVO, 🔥 FECHAR ESTA SEMANA, ⚠️ RISCOS IMEDIATOS, 📋 CADASTRO
 • PROIBIDO repetir ou resumir o briefing que já apareceu no histórico do chat
-• PROIBIDO saudação, "índice de saúde" ou diagnóstico geral — salvo se a pergunta pedir explicitamente
+• PROIBIDO saudação, "índice de saúde" ou diagnóstico geral — salvo se a pergunta pedir explicitamente ou o foco for visão geral
 • Cite empresas reais do funil; verbos imperativos; prazos concretos
 • PROIBIDO tabelas markdown (|) e cabeçalhos ### — use cards conforme template abaixo
 • Máximo ~25 linhas, salvo se a pergunta pedir lista maior`;
@@ -788,6 +895,22 @@ ${buildParadosAnswerTemplate()}`;
   if (chipFocus === 'descartar') {
     return `${base}
 ${buildDescartarAnswerTemplate()}`;
+  }
+  if (chipFocus === 'visao') {
+    return `${base}
+${buildVisaoAnswerTemplate()}`;
+  }
+  if (chipFocus === 'concentracao') {
+    return `${base}
+${buildConcentracaoAnswerTemplate()}`;
+  }
+  if (chipFocus === 'perdas') {
+    return `${base}
+${buildPerdasAnswerTemplate()}`;
+  }
+  if (chipFocus === 'meta') {
+    return `${base}
+${buildMetaAnswerTemplate()}`;
   }
 
   return base;

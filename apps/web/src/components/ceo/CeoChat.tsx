@@ -70,7 +70,7 @@ const ACTION_GROUPS: { label: string; chips: ChipDef[] }[] = [
     label: 'DIAGNÓSTICO',
     chips: [
       {
-        id: 'diagnostico', label: 'Visão geral', focus: null, variant: 'blue',
+        id: 'diagnostico', label: 'Visão geral', focus: 'visao', variant: 'blue',
         prompt: 'Faça um diagnóstico executivo da carteira de vendas: saúde, riscos imediatos, gargalos e as 3 ações prioritárias desta semana.',
       },
       {
