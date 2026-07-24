@@ -739,8 +739,6 @@ export function CeoChat({ pageData }: Props) {
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [aiProvider, setAiProvider] = useState<AiProvider>('groq');
   const [isPending, startTransition] = useTransition();
-  // useRef prevents double-fire in React StrictMode (dev) unlike useState
-  const briefingDone    = useRef(false);
   const messagesRef     = useRef<HTMLDivElement>(null);
   const bottomRef       = useRef<HTMLDivElement>(null);
   const lastUserMsgRef  = useRef<HTMLDivElement>(null);
@@ -782,22 +780,14 @@ export function CeoChat({ pageData }: Props) {
     }
   }, [pageData.orgId]);
 
-  useEffect(() => {
-    if (!briefingDone.current && !pageData.quotaExceeded) {
-      briefingDone.current = true;
-      runBriefing();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // useLayoutEffect fires before the browser paints — prevents browser scroll anchoring from
-  // keeping the view at the bottom when the briefing content replaces the TypingIndicator
+  // keeping the view at the bottom when briefing content replaces the TypingIndicator
   useLayoutEffect(() => {
     if (messages.length === 0) return;
     const lastMsg = messages[messages.length - 1];
     const isBriefing = messages.length === 1 && lastMsg.role === 'assistant';
     if (isBriefing && messagesRef.current) {
-      // Briefing: always show from the very top
+      // Briefing (via Novo Briefing): always show from the very top
       messagesRef.current.scrollTop = 0;
     }
   }, [messages]);
@@ -956,15 +946,16 @@ export function CeoChat({ pageData }: Props) {
         <div className="ceo-messages" ref={messagesRef}>
           {isEmpty && (
             <div className="ceo-empty">
-              <div className="ceo-empty-icon">🧠</div>
-              <div className="ceo-empty-text">RainMaker está analisando seu pipeline…</div>
+              <div className="ceo-empty-text">
+                Escolha um atalho abaixo ou faça uma pergunta
+              </div>
             </div>
           )}
-          {messages.map((msg, i) => {
+          {messages.filter((m) => m.content.trim()).map((msg, i, visible) => {
             // Attach ref to the last user message so we can scroll to it when AI responds
             const isLastUser =
               msg.role === 'user' &&
-              messages.slice(i + 1).every((m) => m.role !== 'user');
+              visible.slice(i + 1).every((m) => m.role !== 'user');
             return (
               <MessageBubble
                 key={msg.id}
