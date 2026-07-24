@@ -137,6 +137,18 @@ function applyInlineMarkdown(text: string) {
   return escapeHtml(stripDealIdMarkers(text)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
+/** Collapse leftover "ação| para X| até Y" pipes in displayed action text. */
+function normalizeActionPipes(text: string) {
+  return text
+    .replace(/\s*\|\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function applyActionMarkdown(text: string) {
+  return applyInlineMarkdown(normalizeActionPipes(text));
+}
+
 /** Optional trailing [id:…] after a bold company name (full or truncated UUID). */
 const DEAL_ID_SUFFIX = String.raw`(\s*\[id:\s*[0-9a-f][0-9a-f-]*\])?`;
 
@@ -168,7 +180,7 @@ function renderDealCard(
     `<div class="ceo-card-body">` +
     `<div class="ceo-card-title">${applyInlineMarkdown(displayCompany)}</div>` +
     metaHtml +
-    `<div class="ceo-card-action">${applyInlineMarkdown(action)}</div>` +
+    `<div class="ceo-card-action">${applyActionMarkdown(action)}</div>` +
     openHtml +
     `</div></div>`
   );
@@ -202,7 +214,7 @@ function renderImmediateActionItems(text: string) {
     ? cleaned.split(/;\s*/).map((s) => s.trim()).filter(Boolean)
     : [cleaned];
   return items
-    .map((item) => `<div class="ceo-bullet ceo-bullet--immediate">${applyInlineMarkdown(item)}</div>`)
+    .map((item) => `<div class="ceo-bullet ceo-bullet--immediate">${applyActionMarkdown(item)}</div>`)
     .join('');
 }
 
@@ -354,7 +366,7 @@ function renderBlock(block: string, lastSection: string, resolveDealId?: DealRes
     return (
       `<div class="ceo-card">` +
       `<span class="ceo-card-num">${escapeHtml(numMatch[1])}</span>` +
-      `<div class="ceo-card-body"><div class="ceo-card-action">${applyInlineMarkdown(numMatch[2])}</div></div></div>`
+      `<div class="ceo-card-body"><div class="ceo-card-action">${applyActionMarkdown(numMatch[2])}</div></div></div>`
     );
   }
 
@@ -372,7 +384,7 @@ function renderBlock(block: string, lastSection: string, resolveDealId?: DealRes
     const parsed = parseDashParts(bulletMatch[1]);
     if (parsed) return renderDealCard(null, parsed.company, parsed.meta, parsed.action, resolveDealId);
     const cls = isImmediateActionsSection(lastSection) ? 'ceo-bullet ceo-bullet--immediate' : 'ceo-bullet';
-    return `<div class="${cls}">${applyInlineMarkdown(bulletMatch[1])}</div>`;
+    return `<div class="${cls}">${isImmediateActionsSection(lastSection) ? applyActionMarkdown(bulletMatch[1]) : applyInlineMarkdown(bulletMatch[1])}</div>`;
   }
 
   if (isImmediateActionsSection(lastSection)) {
@@ -394,14 +406,14 @@ function renderLine(line: string, lastSection: string, resolveDealId?: DealResol
     return (
       `<div class="ceo-card">` +
       `<span class="ceo-card-num">${escapeHtml(numMatch[1])}</span>` +
-      `<div class="ceo-card-body"><div class="ceo-card-action">${applyInlineMarkdown(numMatch[2])}</div></div></div>`
+      `<div class="ceo-card-body"><div class="ceo-card-action">${applyActionMarkdown(numMatch[2])}</div></div></div>`
     );
   }
 
   if (isImmediateActionsSection(lastSection)) {
     if (/^•\s+/.test(line)) {
       const item = line.replace(/^•\s+/, '');
-      return `<div class="ceo-bullet ceo-bullet--immediate">${applyInlineMarkdown(item)}</div>`;
+      return `<div class="ceo-bullet ceo-bullet--immediate">${applyActionMarkdown(item)}</div>`;
     }
     return renderImmediateActionItems(line);
   }
@@ -414,7 +426,7 @@ function renderLine(line: string, lastSection: string, resolveDealId?: DealResol
   }
 
   if (/^→\s+/.test(line)) {
-    return `<div class="ceo-inline-action">${applyInlineMarkdown(line.replace(/^→\s+/, ''))}</div>`;
+    return `<div class="ceo-inline-action">${applyActionMarkdown(line.replace(/^→\s+/, ''))}</div>`;
   }
 
   return `<p class="ceo-para">${applyInlineMarkdown(line)}</p>`;

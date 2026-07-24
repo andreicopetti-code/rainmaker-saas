@@ -618,7 +618,9 @@ PLAYBOOK DE VENDAS (por etapa do funil)
 ═══════════════════════════════
 ${playbook}
 
-Para cada negócio citado, estruture ações como: O QUÊ fazer | PARA QUEM | ATÉ QUANDO
+Para cada negócio citado, escreva a ação em frase fluente (sem "|"): verbo concreto + para quem + até DD/MM nesta semana.
+Ex.: "Enviar proposta detalhada para o contato até 05/07."
+PROIBIDO esquemas com pipe: "O QUÊ | PARA QUEM | ATÉ QUANDO" ou "ação| para X| até Y".
 Use a etapa atual, próximo compromisso e nota para personalizar — nunca sugira ação genérica se a etapa já indica o movimento correto.
 
 ═══════════════════════════════
@@ -677,13 +679,13 @@ REGRAS DE FORMATAÇÃO — BRIEFING INICIAL
 FORMATO OBRIGATÓRIO — cada negócio em 🔥 (3 linhas, sem travessões):
 1. **NOME DA EMPRESA** [id:<uuid>]
 Etapa · Classificação
-→ Movimento concreto em uma frase.
+→ Movimento concreto em uma frase fluente (verbo + para quem + até DD/MM). Sem "|".
 
 FORMATO OBRIGATÓRIO — cada risco em ⚠️ (2 linhas):
 • **NOME** [id:<uuid>] — causa do risco em poucas palavras
-→ Ação corretiva em uma frase.
+→ Ação corretiva em uma frase fluente (verbo + para quem + prazo). Sem "|".
 
-• 🎯 AÇÕES IMEDIATAS: 3 a 5 bullets — UMA ação por linha (empresa + verbo + prazo). PROIBIDO ponto e vírgula ou texto corrido
+• 🎯 AÇÕES IMEDIATAS: 3 a 5 bullets — UMA ação por linha (empresa + verbo + para quem + prazo). PROIBIDO "|" , ponto e vírgula ou texto corrido
 • Se 🔥 FECHAR estiver vazio na classificação automática, use os CANDIDATOS A FECHAMENTO fornecidos — nunca diga "nenhum negócio"`;
 }
 
@@ -694,16 +696,16 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos)
 🎯 3 MOVIMENTOS ESTRATÉGICOS (próximas 2 semanas)
 
 1. **[Título do movimento]** — [1 linha: o que muda na receita]
-   • **[Empresa]**: [verbo imperativo + prazo até DD/MM]
-   • **[Empresa]**: [verbo imperativo + prazo] (opcional; máx. 2 empresas por movimento)
+   • **[Empresa]** [id:<uuid>]: [verbo + para quem + até DD/MM]
+   • **[Empresa]** [id:<uuid>]: [verbo + para quem + até DD/MM] (opcional; máx. 2 empresas por movimento)
 
 2. **[Título do movimento]** — [impacto em 1 linha]
-   • **[Empresa]**: [ação + prazo]
+   • **[Empresa]** [id:<uuid>]: [ação fluente: verbo + para quem + prazo]
 
 3. **[Título do movimento]** — [impacto em 1 linha]
-   • **[Empresa]**: [ação + prazo]
+   • **[Empresa]** [id:<uuid>]: [ação fluente: verbo + para quem + prazo]
 
-Regras: exatamente 3 movimentos; cada um com 1-2 bullets concretos; empresas da lista NEGÓCIOS ATIVOS; prazos dentro de 14 dias; PROIBIDO parágrafo introdutório.`;
+Regras: exatamente 3 movimentos; cada um com 1-2 bullets concretos; empresas da lista NEGÓCIOS ATIVOS; prazos dentro de 14 dias; frase fluente sem "|"; PROIBIDO parágrafo introdutório.`;
 }
 
 function buildFecharAnswerTemplate(): string {
@@ -714,7 +716,7 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos)
 
 1. **NOME EXATO DA EMPRESA** [id:<uuid>]
 Etapa · Classificação · próximo compromisso (ou "sem agenda")
-→ Ação 1; Ação 2; Ação 3 — tudo em UMA linha após →, com prazos até sexta
+→ Ação 1; Ação 2; Ação 3 — frases fluentes (verbo + para quem + até DD/MM), UMA linha após →, prazos até sexta
 
 2. **SEGUNDA EMPRESA** [id:<uuid>]
 Etapa · Classificação · ...
@@ -723,7 +725,7 @@ Etapa · Classificação · ...
 Regras:
 • Máximo 3 negócios; nomes EXATOS da lista NEGÓCIOS ATIVOS (entre **) + [id:<uuid>] do contexto
 • Cada negócio = exatamente 3 linhas (título numerado, meta, → ações)
-• PROIBIDO tabelas markdown (| col |), cabeçalhos ### e listas numeradas soltas de ações`;
+• PROIBIDO "|" nas ações; PROIBIDO tabelas markdown (| col |), cabeçalhos ### e listas numeradas soltas de ações`;
 }
 
 function buildRiscoAnswerTemplate(): string {
@@ -733,12 +735,12 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 ⚠️ EM RISCO
 
 • **NOME EXATO** [id:<uuid>] — causa do risco em poucas palavras
-→ Ação corretiva com prazo até DD/MM
+→ Ação corretiva fluente: verbo + para quem + até DD/MM
 
 • **NOME EXATO** [id:<uuid>] — causa
-→ Ação corretiva
+→ Ação corretiva fluente (sem "|")
 
-Regras: máx. 5 negócios; PROIBIDO tabelas markdown e cabeçalhos ###; cada risco = 2 linhas (bullet + →)`;
+Regras: máx. 5 negócios; PROIBIDO "|" nas ações; PROIBIDO tabelas markdown e cabeçalhos ###; cada risco = 2 linhas (bullet + →)`;
 }
 
 function buildParadosAnswerTemplate(): string {
@@ -749,9 +751,9 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 
 1. **NOME EXATO** [id:<uuid>]
 Etapa · X dias parado · Classificação
-→ Plano de reativação em UMA linha (2-3 passos com prazo)
+→ Plano de reativação em UMA linha fluente (2-3 passos: verbo + para quem + até DD/MM)
 
-Regras: PROIBIDO tabelas markdown e ###; cada negócio = 3 linhas (numerado, meta, →)`;
+Regras: PROIBIDO "|" nas ações; PROIBIDO tabelas markdown e ###; cada negócio = 3 linhas (numerado, meta, →)`;
 }
 
 function buildDescartarAnswerTemplate(): string {
@@ -761,9 +763,9 @@ FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura:
 🗑️ DESCARTAR DA CARTEIRA
 
 • **NOME EXATO** [id:<uuid>] — motivo objetivo (dados do funil)
-→ Como liberar foco (arquivar/perder + próximo passo)
+→ Como liberar foco em frase fluente (arquivar/perder + próximo passo + prazo)
 
-Regras: PROIBIDO tabelas markdown e ###; cada item = 2 linhas (bullet + →)`;
+Regras: PROIBIDO "|" nas ações; PROIBIDO tabelas markdown e ###; cada item = 2 linhas (bullet + →)`;
 }
 
 function buildVisaoAnswerTemplate(): string {
@@ -779,15 +781,15 @@ Estado da carteira em linguagem de gerente de vendas: volume ativo, conversão, 
 Um único gargalo (etapa, velocidade, concentração, cadastro ou agenda) com evidência de 1–2 negócios nomeados [id:<uuid>].
 
 🎯 PRIORIDADES DESTA SEMANA (3 a 5)
-1. **NOME EXATO** [id:<uuid>] — O QUÊ | PARA QUEM | ATÉ QUANDO (esta semana)
+1. **NOME EXATO** [id:<uuid>] — Enviar proposta detalhada para o contato até DD/MM
 2. ...
 
 Regras:
 • Separar diagnóstico (SAÚDE + GARGALO) das ações (PRIORIDADES)
-• Cada prioridade = negócio real + verbo imperativo + canal/próximo compromisso + prazo até sexta
+• Cada prioridade = frase fluente: verbo + para quem + prazo até sexta (esta semana)
 • Venda complexa: próximo compromisso com stakeholder / proposta / negociação
 • Venda simples: pedir o sim, avançar etapa ou matar
-• PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###
+• PROIBIDO "|" nas ações; PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###
 • PROIBIDO listar o funil inteiro — só o que muda receita esta semana`;
 }
 
@@ -802,17 +804,17 @@ Onde a carteira está concentrada: top negócios no valor aberto, etapa avançad
 
 ⚠️ NEGÓCIOS QUE SEGURAM O RESULTADO (máx. 4)
 • **NOME EXATO** [id:<uuid>] — por que a perda dele dói (valor/classif/etapa)
-→ Proteção concreta: O QUÊ | PARA QUEM | ATÉ QUANDO (esta semana)
+→ Proteção concreta em frase fluente: verbo + para quem + até DD/MM (esta semana)
 
 🔀 DIVERSIFICAR AGORA (2–3 bullets)
-• Ação para reduzir dependência (acelerar #3–#5, reativar parado com potencial, matar zombie que ocupa tempo)
+• Ação fluente para reduzir dependência (acelerar #3–#5, reativar parado com potencial, matar zombie que ocupa tempo)
 
 Regras:
 • Priorize impacto de receita se o concentrado cair
 • Cada bullet de proteção = compromisso ou ask específico (não "nutrir relacionamento")
 • Venda complexa: mapear decisor / alinhar proposta / trancar próximo passo
 • Venda simples: prazo de resposta ou kill
-• PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###`;
+• PROIBIDO "|" nas ações; PROIBIDO "acompanhar", "ficar de olho", tabelas markdown e ###`;
 }
 
 function buildPerdasAnswerTemplate(): string {
@@ -826,7 +828,7 @@ Por que estamos perdendo: classificação, etapa de saída, setor, falta de agen
 
 📋 CASOS (máx. 5)
 • **NOME EXATO** [id:<uuid>] — causa objetiva (dados do funil)
-→ Prevenir repetição OU recuperar (só se houver sinal real de salvage)
+→ Prevenir repetição OU recuperar em frase fluente (só se houver sinal real de salvage)
 
 🛡 MUDANÇAS NO PROCESSO (2–3 bullets)
 • Regra operacional desta semana (ex.: "todo Médio+ em Proposta com retorno agendado em 48h")
@@ -835,7 +837,7 @@ Regras:
 • Separar padrão (diagnóstico) de casos e de ações de processo
 • Preferir prevenção sistêmica a lamentação
 • Se houver salvage: ask claro + prazo; senão, arquivar mentalmente e seguir
-• PROIBIDO "aprender com o erro" genérico, "acompanhar", tabelas markdown e ###`;
+• PROIBIDO "|" nas ações; PROIBIDO "aprender com o erro" genérico, "acompanhar", tabelas markdown e ###`;
 }
 
 function buildMetaAnswerTemplate(): string {
@@ -850,17 +852,17 @@ Onde estamos vs. fechar o mês bem: receita confirmada (se houver), pipeline com
 🔥 O QUE MOVE O NÚMERO ESTA SEMANA (3 a 5)
 1. **NOME EXATO** [id:<uuid>]
 Etapa · Fecha (ou "sem data") · Classificação
-→ O QUÊ | PARA QUEM | ATÉ QUANDO — ação que antecipa ou tranca receita neste mês
+→ Enviar proposta detalhada para o decisor até DD/MM — ação que antecipa ou tranca receita neste mês
 
 ⚡ SE O GAP NÃO FECHA
-• 1–2 movimentos: trazer deal de fora do mês, matar ilusão, ou renegociar prazo com decisor
+• 1–2 movimentos: trazer negócio de fora do mês, matar ilusão, ou renegociar prazo com decisor
 
 Regras:
 • Só negócios que podem virar receita neste mês (ou desbloquear o gap)
-• Cada ação = verbo + canal/compromisso + prazo até sexta
+• Cada ação = frase fluente: verbo + para quem + prazo até sexta
 • Venda complexa: próximo commitment do comprador (aprovação, proposta assinada, comitê)
 • Venda simples: ask de fechamento ou kill até data
-• PROIBIDO "acompanhar pipeline", "ficar de olho na meta", tabelas markdown e ###`;
+• PROIBIDO "|" nas ações; PROIBIDO "acompanhar pipeline", "ficar de olho na meta", tabelas markdown e ###`;
 }
 
 function buildChatAnswerRules(chipFocus: ChipFocus): string {
@@ -873,7 +875,9 @@ MODO RESPOSTA — PERGUNTA / CHIP (NÃO É BRIEFING)
 • PROIBIDO repetir ou resumir o briefing que já apareceu no histórico do chat
 • PROIBIDO saudação, "índice de saúde" ou diagnóstico geral — salvo se a pergunta pedir explicitamente ou o foco for visão geral
 • Cite empresas reais do funil; verbos imperativos; prazos concretos
-• PROIBIDO tabelas markdown (|) e cabeçalhos ### — use cards conforme template abaixo
+• Cada ação = frase fluente: verbo concreto + para quem + até DD/MM nesta semana. Ex.: "Enviar proposta detalhada para o contato até 05/07."
+• PROIBIDO separar partes da ação com "|" (nunca "O QUÊ | PARA QUEM | ATÉ QUANDO")
+• PROIBIDO tabelas markdown (| col |) e cabeçalhos ### — use cards conforme template abaixo
 • Máximo ~25 linhas, salvo se a pergunta pedir lista maior`;
 
   if (chipFocus === 'movimentos') {
