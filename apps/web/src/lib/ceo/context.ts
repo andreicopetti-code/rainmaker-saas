@@ -2,6 +2,10 @@ import { TIERS } from '@ceo-brain/shared';
 import type { FunnelStageConfig } from '@/lib/funnel/stage-config';
 import { formatApptCompact, scheduledAtToDate, APP_TIMEZONE } from '@/lib/appointments/datetime';
 import { isMissingActionableValue, isValueDeferred } from '@/lib/funnel/value-deferred';
+import {
+  formatGoalsForPrompt,
+  type RevenueGoalsProgress,
+} from '@/lib/goals/revenue-goals';
 import { buildPlaybookSection, getStagePlaybook } from './playbook';
 import {
   activeStageIndex,
@@ -840,14 +844,19 @@ Regras:
 • PROIBIDO "|" nas ações; PROIBIDO "aprender com o erro" genérico, "acompanhar", tabelas markdown e ###`;
 }
 
-function buildMetaAnswerTemplate(): string {
+function buildMetaAnswerTemplate(goalsProgress: RevenueGoalsProgress | null): string {
+  const hasMonthly = goalsProgress?.monthly.hasGoal === true;
+  const gapRule = hasMonthly
+    ? 'Use a META MENSAL e o REALIZADO do contexto (seção METAS DE RECEITA). Calcule o gap vs. a meta formal — não invente outro número.'
+    : 'Sem meta formal no contexto: declare a premissa (ex. "fechamento do mês = converter X negócios com Fecha/etapa avançada") — não invente número de meta.';
+
   return `
 FORMATO OBRIGATÓRIO — responda EXATAMENTE nesta estrutura (copie os títulos):
 
 🎯 META DO MÊS
 
 📏 GAP (2–3 linhas)
-Onde estamos vs. fechar o mês bem: receita confirmada (se houver), pipeline com Fecha neste mês, e o gap em linguagem concreta. Sem meta formal no contexto: declare a premissa (ex. "fechamento do mês = converter X negócios com Fecha/etapa avançada") — não invente número de meta.
+Onde estamos vs. fechar o mês bem: receita confirmada (se houver), pipeline com Fecha neste mês, e o gap em linguagem concreta. ${gapRule}
 
 🔥 O QUE MOVE O NÚMERO ESTA SEMANA (3 a 5)
 1. **NOME EXATO** [id:<uuid>]
@@ -865,7 +874,10 @@ Regras:
 • PROIBIDO "|" nas ações; PROIBIDO "acompanhar pipeline", "ficar de olho na meta", tabelas markdown e ###`;
 }
 
-function buildChatAnswerRules(chipFocus: ChipFocus): string {
+function buildChatAnswerRules(
+  chipFocus: ChipFocus,
+  goalsProgress: RevenueGoalsProgress | null = null,
+): string {
   const base = `
 ═══════════════════════════════
 MODO RESPOSTA — PERGUNTA / CHIP (NÃO É BRIEFING)
@@ -914,7 +926,7 @@ ${buildPerdasAnswerTemplate()}`;
   }
   if (chipFocus === 'meta') {
     return `${base}
-${buildMetaAnswerTemplate()}`;
+${buildMetaAnswerTemplate(goalsProgress)}`;
   }
 
   return base;
@@ -936,6 +948,7 @@ export function buildSystemPrompt(
   agendaEvents: AgendaEvent[] = [],
   compromissosAtrasados = 0,
   chipFocus: ChipFocus = null,
+  goalsProgress: RevenueGoalsProgress | null = null,
 ) {
   const fecharNomes = classif.fechar.map((c) => c.nome).join(', ') || 'Nenhum';
   const riscoNomes = classif.risco.map((c) => c.nome).join(', ') || 'Nenhum';
@@ -950,10 +963,18 @@ export function buildSystemPrompt(
     : 'Nenhum negócio parado identificado.';
 
   const resumo = context.resumo;
+  const metasSection = goalsProgress
+    ? `
+═══════════════════════════════
+METAS DE RECEITA (ORG)
+═══════════════════════════════
+${formatGoalsForPrompt(goalsProgress)}
+`
+    : '';
 
   return `${buildPromptBase(health, stageConfig)}
 
-${buildChatAnswerRules(chipFocus)}
+${buildChatAnswerRules(chipFocus, goalsProgress)}
 
 ═══════════════════════════════
 RESUMO DO FUNIL DE VENDAS
@@ -961,7 +982,7 @@ RESUMO DO FUNIL DE VENDAS
 Total: ${resumo.total} negócios | Ganhos: ${resumo.ganhos} | Perdidos: ${resumo.perdidos}
 Conversão: ${resumo.taxaConversao}${resumo.receitaConfirmada > 0 ? ` | Receita Confirmada: R$ ${resumo.receitaConfirmada.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''}
 ${resumo.receitaRealAberta > 0 ? `Receita em aberto: R$ ${resumo.receitaRealAberta.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} (${resumo.dealsComValorReal} negócios com valor preenchido)` : ''}
-
+${metasSection}
 ═══════════════════════════════
 QUALIDADE DE DADOS
 ═══════════════════════════════
@@ -1001,6 +1022,7 @@ export function buildBriefingPrompt(
   stageConfig: FunnelStageConfig[],
   agendaEvents: AgendaEvent[] = [],
   compromissosAtrasados = 0,
+  goalsProgress: RevenueGoalsProgress | null = null,
 ) {
   const classifDetalhado = {
     fecharAgora: classif.fechar.map((c) => ({ id: c.id, nome: c.nome, etapa: c.etapa, tier: c.tier, valor: c.valor, nota: c.nota })),
@@ -1022,6 +1044,15 @@ export function buildBriefingPrompt(
     .map((e) => `${e.etapa}: ${e.quantidade}${e.receitaReal > 0 ? ` (R$ ${e.receitaReal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })})` : ''}`)
     .join(' | ');
 
+  const metasSection = goalsProgress
+    ? `
+═══════════════════════════════
+METAS DE RECEITA (ORG)
+═══════════════════════════════
+${formatGoalsForPrompt(goalsProgress)}
+`
+    : '';
+
   return `${buildPromptHeader(health, stageConfig)}
 
 ═══════════════════════════════
@@ -1035,7 +1066,7 @@ RESUMO QUANTITATIVO
 Total: ${resumo.total} | Ganhos: ${resumo.ganhos} | Perdidos: ${resumo.perdidos} | Conversão: ${resumo.taxaConversao}
 ${resumo.receitaConfirmada > 0 ? `Receita confirmada: R$ ${resumo.receitaConfirmada.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : 'Sem receita confirmada ainda.'}
 ${resumo.receitaRealAberta > 0 ? `Receita em aberto: R$ ${resumo.receitaRealAberta.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} (${resumo.dealsComValorReal} negócios com valor preenchido)` : ''}
-
+${metasSection}
 POR ETAPA: ${porEtapaLines}
 
 POR CLASSIFICAÇÃO: ${context.porTier.map((t) => `${t.tier}: ${t.quantidade}${t.receitaRealSomada > 0 ? ` (R$ ${t.receitaRealSomada.toLocaleString('pt-BR', { maximumFractionDigits: 0 })})` : ''}`).join(' | ')}

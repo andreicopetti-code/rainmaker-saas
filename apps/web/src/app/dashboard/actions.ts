@@ -1,9 +1,14 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { loadOrgMembers, memberDisplayName } from '@/lib/org/team-members';
 import { parseStageConfig, type FunnelStageConfig } from '@/lib/funnel/stage-config';
 import type { DashboardOpp } from '@/lib/dashboard/metrics';
+import {
+  parseGoalInput,
+  type OrgRevenueGoals,
+} from '@/lib/goals/revenue-goals';
 
 export type DashboardData = {
   opps: DashboardOpp[];
@@ -11,6 +16,8 @@ export type DashboardData = {
   overdueAppointments: number;
   upcomingAppointments: number;
   updatedAt: string;
+  goals: OrgRevenueGoals;
+  canEditGoals: boolean;
 };
 
 export async function getDashboardData(): Promise<DashboardData | null> {
@@ -39,7 +46,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
 
   const funnelId = funnel?.id ?? '';
 
-  const [{ data: oppRows }, { data: memberRows }] = await Promise.all([
+  const [{ data: oppRows }, { data: memberRows }, { data: orgGoalsRow }] = await Promise.all([
     funnelId
       ? (() => {
           let q = supabase
@@ -64,6 +71,11 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       .select('user_id')
       .eq('organization_id', orgId)
       .eq('is_active', true),
+    supabase
+      .from('organizations')
+      .select('goal_monthly, goal_annual')
+      .eq('id', orgId)
+      .maybeSingle(),
   ]);
 
   const memberIds = (memberRows ?? []).map((m) => m.user_id);
@@ -196,11 +208,65 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     };
   });
 
+  const goals: OrgRevenueGoals = {
+    monthly: orgGoalsRow?.goal_monthly != null ? Number(orgGoalsRow.goal_monthly) : null,
+    annual: orgGoalsRow?.goal_annual != null ? Number(orgGoalsRow.goal_annual) : null,
+  };
+
   return {
     opps,
     stageConfig,
     overdueAppointments: (overdueRes as { count?: number }).count ?? 0,
     upcomingAppointments: (upcomingRes as { count?: number }).count ?? 0,
     updatedAt: new Date().toISOString(),
+    goals,
+    canEditGoals: org.role === 'admin',
   };
+}
+
+export type SaveGoalsResult = { ok: true } | { ok: false; error: string };
+
+/** Persiste metas mensal/anual na organização (admin). Aceita string ou number; vazio → null. */
+export async function saveOrgRevenueGoals(input: {
+  monthly: string | number | null;
+  annual: string | number | null;
+}): Promise<SaveGoalsResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'Não autenticado' };
+
+    const { data: orgRows } = await supabase.rpc('get_user_organization', { p_user_id: user.id });
+    const org = orgRows?.[0];
+    if (!org) return { ok: false, error: 'Organização não encontrada' };
+    if (org.role !== 'admin') {
+      return { ok: false, error: 'Apenas administradores podem editar as metas' };
+    }
+
+    const toGoal = (v: string | number | null): number | null => {
+      if (v == null) return null;
+      if (typeof v === 'number') return Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null;
+      return parseGoalInput(v);
+    };
+
+    const goal_monthly = toGoal(input.monthly);
+    const goal_annual = toGoal(input.annual);
+
+    const { error } = await supabase
+      .from('organizations')
+      .update({
+        goal_monthly,
+        goal_annual,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', org.organization_id);
+
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath('/dashboard');
+    revalidatePath('/ceo');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erro ao salvar metas' };
+  }
 }

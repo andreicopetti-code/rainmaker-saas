@@ -19,6 +19,11 @@ import {
   type DealClassification,
   type HealthScore,
 } from '@/lib/ceo/context';
+import {
+  computeRevenueGoalsFromOpps,
+  type OrgRevenueGoals,
+  type RevenueGoalsProgress,
+} from '@/lib/goals/revenue-goals';
 
 import { suggestChallengeDeadlineLabel } from '@/lib/ceo/challenge';
 import { buildDealLinks, groundAiResponse, type DealLink } from '@/lib/ceo/deal-links';
@@ -170,7 +175,7 @@ async function loadCeoData() {
 
   const orgId: string = org.organization_id;
 
-  const [{ data: funnelRows }, planCtx] = await Promise.all([
+  const [{ data: funnelRows }, planCtx, { data: orgGoalsRow }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('funnels')
@@ -179,6 +184,11 @@ async function loadCeoData() {
       .is('deleted_at', null)
       .limit(1),
     getOrgPlanContext(supabase, orgId),
+    supabase
+      .from('organizations')
+      .select('goal_monthly, goal_annual')
+      .eq('id', orgId)
+      .maybeSingle(),
   ]);
 
   const funnelId = (funnelRows as Array<{ id: string }> | null)?.[0]?.id ?? '';
@@ -300,6 +310,12 @@ async function loadCeoData() {
   const aiUsed = counterRow?.count ?? 0;
   const aiLimit = planCtx.limits.ai_monthly;
 
+  const goals: OrgRevenueGoals = {
+    monthly: orgGoalsRow?.goal_monthly != null ? Number(orgGoalsRow.goal_monthly) : null,
+    annual: orgGoalsRow?.goal_annual != null ? Number(orgGoalsRow.goal_annual) : null,
+  };
+  const goalsProgress: RevenueGoalsProgress = computeRevenueGoalsFromOpps(goals, opps, stageConfig);
+
   return {
     supabase,
     user,
@@ -312,6 +328,7 @@ async function loadCeoData() {
     ceoBrainEnabled: planCtx.limits.ceo_brain_enabled,
     agendaEvents,
     compromissosAtrasados,
+    goalsProgress,
   };
 }
 
@@ -363,6 +380,7 @@ export async function askCeo(
       ceoBrainEnabled,
       agendaEvents,
       compromissosAtrasados,
+      goalsProgress,
     } = await loadCeoData();
 
     if (!ceoBrainEnabled) {
@@ -384,10 +402,10 @@ export async function askCeo(
 
     const systemContent =
       mode === 'briefing'
-        ? buildBriefingPrompt(opps, context, dealsParados, classif, health, stageConfig, agendaEvents, compromissosAtrasados)
+        ? buildBriefingPrompt(opps, context, dealsParados, classif, health, stageConfig, agendaEvents, compromissosAtrasados, goalsProgress)
         : mode === 'challenge'
           ? buildChallengePrompt(opps, context, dealsParados, classif, health, stageConfig, agendaEvents, compromissosAtrasados, deadlineLabel)
-          : buildSystemPrompt(opps, context, dealsParados, classif, health, stageConfig, agendaEvents, compromissosAtrasados, chipFocus);
+          : buildSystemPrompt(opps, context, dealsParados, classif, health, stageConfig, agendaEvents, compromissosAtrasados, chipFocus, goalsProgress);
 
     const chatHistory = mode === 'chat' ? trimChatHistory(history) : history;
 

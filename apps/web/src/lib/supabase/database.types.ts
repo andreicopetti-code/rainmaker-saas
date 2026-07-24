@@ -496,6 +496,8 @@ export type Database = {
         Row: {
           created_at: string | null
           deleted_at: string | null
+          goal_annual: number | null
+          goal_monthly: number | null
           id: string
           logo_url: string | null
           name: string
@@ -513,6 +515,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           deleted_at?: string | null
+          goal_annual?: number | null
+          goal_monthly?: number | null
           id?: string
           logo_url?: string | null
           name: string
@@ -530,6 +534,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           deleted_at?: string | null
+          goal_annual?: number | null
+          goal_monthly?: number | null
           id?: string
           logo_url?: string | null
           name?: string

@@ -12,6 +12,7 @@ import {
   type ExtendedDashboardMetrics,
   type VolumeWindow,
 } from '@/lib/dashboard/extended-metrics';
+import { MetasCard } from '@/components/dashboard/MetasCard';
 
 type Props = { data: DashboardData };
 type ViewMode = 'summary' | 'full';
@@ -120,11 +121,13 @@ function SectionHead({ id, title, hint }: { id: string; title: string; hint?: st
 
 function DashboardSummary({
   m,
+  data,
   openDeal,
   goAgenda,
   onShowFull,
 }: {
   m: ExtendedDashboardMetrics;
+  data: DashboardData;
   openDeal: (id: string) => void;
   goAgenda: () => void;
   onShowFull: () => void;
@@ -186,6 +189,15 @@ function DashboardSummary({
           sub="14+ dias sem atividade"
           accent={m.kpis.stalledCount === 0 ? '#16A34A' : m.kpis.stalledCount <= 3 ? '#D97706' : '#DC2626'}
           trend={stalledTrend}
+        />
+      </section>
+
+      <section className="dash-metas-section">
+        <MetasCard
+          goals={data.goals}
+          opps={data.opps}
+          stageConfig={data.stageConfig}
+          canEdit={data.canEditGoals}
         />
       </section>
 
@@ -333,11 +345,28 @@ export function DashboardView({ data }: Props) {
 
   if (data.opps.length === 0) {
     return (
-      <div className="dash-empty">
-        <h2>Nenhum dado no funil ainda</h2>
-        <p>Adicione negócios no funil para ver métricas executivas aqui.</p>
-        <div className="dash-empty-actions">
-          <Link href="/funil" className="dash-btn dash-btn-primary">Ir para o Funil</Link>
+      <div className="dash-root">
+        <div className="dash-toolbar">
+          <div className="dash-toolbar-left">
+            <h1 className="dash-title">Dashboard</h1>
+          </div>
+        </div>
+        <div className="dash-body">
+          <section className="dash-metas-section">
+            <MetasCard
+              goals={data.goals}
+              opps={data.opps}
+              stageConfig={data.stageConfig}
+              canEdit={data.canEditGoals}
+            />
+          </section>
+          <div className="dash-empty">
+            <h2>Nenhum dado no funil ainda</h2>
+            <p>Adicione negócios no funil para ver métricas executivas aqui.</p>
+            <div className="dash-empty-actions">
+              <Link href="/funil" className="dash-btn dash-btn-primary">Ir para o Funil</Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -399,6 +428,7 @@ export function DashboardView({ data }: Props) {
         {viewMode === 'summary' ? (
           <DashboardSummary
             m={m}
+            data={data}
             openDeal={(id) => openDeal(id)}
             goAgenda={() => router.push('/agenda')}
             onShowFull={() => setViewMode('full')}
@@ -562,6 +592,15 @@ export function DashboardView({ data }: Props) {
             </section>
 
             <SectionHead id="dash-receita" title="3. Valor e receita prevista" hint="Pipeline, forecast ponderado e cenários." />
+
+            <section className="dash-metas-section">
+              <MetasCard
+                goals={data.goals}
+                opps={data.opps}
+                stageConfig={data.stageConfig}
+                canEdit={data.canEditGoals}
+              />
+            </section>
 
             <section className="dash-kpi-grid dash-kpi-grid--4">
               <KpiCard label="Pipeline aberto" value={fmtCompact(m.kpis.pipelineValue)} sub={`${m.kpis.activeCount} negócios`} accent="#2563EB" />
