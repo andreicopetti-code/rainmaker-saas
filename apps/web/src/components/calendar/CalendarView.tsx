@@ -352,9 +352,11 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                 onClick={() => openCreate(key)}
               >
                 <div className={`cal-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
-                {visible.map((ev) => (
-                  <EventChip key={ev.id} ev={ev} onClick={() => openEdit(ev)} />
-                ))}
+                <div className="cal-cell-events">
+                  {visible.map((ev) => (
+                    <EventChip key={ev.id} ev={ev} onClick={() => openEdit(ev)} />
+                  ))}
+                </div>
                 {overflow > 0 && !isExpanded && (
                   <button
                     type="button"
