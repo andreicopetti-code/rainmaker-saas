@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   toggleCalendarEventDone,
@@ -103,8 +103,27 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   const [defaultDate, setDefaultDate] = useState<string>('');
   const [expandDay, setExpandDay] = useState<string | null>(null);
+  const expandRef = useRef<HTMLDivElement>(null);
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expandDay) return;
+    function onPointerDown(e: MouseEvent) {
+      if (expandRef.current && !expandRef.current.contains(e.target as Node)) {
+        setExpandDay(null);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setExpandDay(null);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [expandDay]);
 
   function openCreate(date?: string) {
     setEditEvent(null);
@@ -322,20 +341,21 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
             const isToday = key === todayKey;
             const dayEvents = eventsByDate.get(key) ?? [];
             const isExpanded = expandDay === key;
-            const visible = isExpanded ? dayEvents : dayEvents.slice(0, MAX_VISIBLE);
+            const visible = dayEvents.slice(0, MAX_VISIBLE);
             const overflow = dayEvents.length - MAX_VISIBLE;
 
             return (
               <div
                 key={idx}
-                className={`cal-cell${isToday ? ' today' : ''}${!isCurrentMonth ? ' other-month' : ''}`}
+                ref={isExpanded ? expandRef : undefined}
+                className={`cal-cell${isToday ? ' today' : ''}${!isCurrentMonth ? ' other-month' : ''}${isExpanded ? ' is-expanded' : ''}`}
                 onClick={() => openCreate(key)}
               >
                 <div className={`cal-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
                 {visible.map((ev) => (
                   <EventChip key={ev.id} ev={ev} onClick={() => openEdit(ev)} />
                 ))}
-                {!isExpanded && overflow > 0 && (
+                {overflow > 0 && !isExpanded && (
                   <button
                     type="button"
                     className="cal-overflow-btn"
@@ -345,13 +365,28 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                   </button>
                 )}
                 {isExpanded && (
-                  <button
-                    type="button"
-                    className="cal-overflow-btn"
-                    onClick={(e) => { e.stopPropagation(); setExpandDay(null); }}
+                  <div
+                    className="cal-day-popover"
+                    role="dialog"
+                    aria-label={`Compromissos de ${date.getDate()}`}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Menos ▲
-                  </button>
+                    <div className="cal-day-popover-head">
+                      <div className={`cal-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
+                      <button
+                        type="button"
+                        className="cal-overflow-btn"
+                        onClick={(e) => { e.stopPropagation(); setExpandDay(null); }}
+                      >
+                        Menos ▲
+                      </button>
+                    </div>
+                    <div className="cal-day-popover-list">
+                      {dayEvents.map((ev) => (
+                        <EventChip key={ev.id} ev={ev} onClick={() => openEdit(ev)} />
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             );
