@@ -265,13 +265,17 @@ export async function reorderOpportunities(updates: { id: string; sort_order: nu
   }
 
   // sort_order not yet in generated types — use untyped client
+  // Only update sort_order: bumping updated_at here resets the "days" badge for every
+  // card in the column (move/reorder also rewrites peer sort_order). DB trigger skips
+  // updated_at when only sort_order changes.
+  // TODO(medium-term): track stage_entered_at separately for time-in-stage badges.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabaseAny = supabase as unknown as any;
   await Promise.all(
     updates.map(({ id, sort_order }) =>
       supabaseAny
         .from('opportunities')
-        .update({ sort_order, updated_at: new Date().toISOString() })
+        .update({ sort_order })
         .eq('id', id)
         .eq('organization_id', org.organization_id),
     ),
