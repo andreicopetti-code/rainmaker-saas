@@ -20,7 +20,9 @@ export function isStripeConfigured(): boolean {
 export function getAppUrl(): string {
   return (
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
-    'http://localhost:3000'
+    (process.env.NODE_ENV === 'production'
+      ? 'https://www.rainmaker.ia.br'
+      : 'http://localhost:3000')
   );
 }
 

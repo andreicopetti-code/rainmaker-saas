@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import { AppShell } from '@/components/AppShell';
-import { APP_NAME, APP_TAGLINE } from '@/lib/brand';
+import { APP_NAME, APP_PRODUCTION_URL, APP_TAGLINE } from '@/lib/brand';
 import './globals.css';
 
 const dmSans = DM_Sans({
@@ -11,6 +11,9 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || APP_PRODUCTION_URL,
+  ),
   title: APP_NAME,
   description: APP_TAGLINE,
 };

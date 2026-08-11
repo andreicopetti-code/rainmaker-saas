@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 /**
- * Cria produtos/preços no Stripe (test mode) para todos os planos pagos + add-ons.
+ * Cria produtos/preços no Stripe para planos pagos + add-ons.
  * Grava stripe_price_monthly_id em public.plans (via features.slug).
  *
- * Uso: npm run billing:setup
+ * Uso:
+ *   npm run billing:setup              # test + apps/web/.env.local
+ *   npm run billing:setup -- --live    # live + ceobrain-prod
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '../apps/web/.env.local');
+const webEnvPath = resolve(__dirname, '../apps/web/.env.local');
+const syncEnvPath = resolve(__dirname, 'empresaqui-sync/.env');
+const LIVE = process.argv.includes('--live');
 
 const PAID_PLANS = [
   { slug: 'regional_1', name: 'CEO Brain — Regional 1', amount: 9900, desc: '1 UF · 20 fichas/dia · 3 usuários' },
@@ -25,6 +29,13 @@ const ADDONS = [
   { slug: 'uf_extra', name: 'CEO Brain — +1 UF', amount: 4900, recurring: true },
   { slug: 'pack_50', name: 'CEO Brain — Pacote 50 fichas', amount: 2900, recurring: false },
   { slug: 'pack_200', name: 'CEO Brain — Pacote 200 fichas', amount: 8900, recurring: false },
+];
+
+const WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'invoice.payment_failed',
 ];
 
 function loadEnvFile(path) {
@@ -40,7 +51,7 @@ function loadEnvFile(path) {
   return vars;
 }
 
-const fileEnv = loadEnvFile(envPath);
+const fileEnv = { ...loadEnvFile(webEnvPath), ...loadEnvFile(syncEnvPath) };
 function env(name) {
   return process.env[name] || fileEnv[name] || '';
 }
@@ -50,19 +61,40 @@ function fail(msg) {
   process.exit(1);
 }
 
-const STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY');
-const SUPABASE_URL = env('NEXT_PUBLIC_SUPABASE_URL');
-const SERVICE_ROLE = env('SUPABASE_SERVICE_ROLE_KEY');
+const STRIPE_SECRET_KEY = LIVE
+  ? env('STRIPE_SECRET_KEY_LIVE') || env('STRIPE_SECRET_KEY')
+  : env('STRIPE_SECRET_KEY');
+const SUPABASE_URL = LIVE
+  ? env('PROD_SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL')
+  : env('NEXT_PUBLIC_SUPABASE_URL');
+const SERVICE_ROLE = LIVE
+  ? env('PROD_SUPABASE_SERVICE_ROLE_KEY') || env('SUPABASE_SERVICE_ROLE_KEY')
+  : env('SUPABASE_SERVICE_ROLE_KEY');
 
-if (!STRIPE_SECRET_KEY) fail('Defina STRIPE_SECRET_KEY em apps/web/.env.local');
-if (!SUPABASE_URL || !SERVICE_ROLE) fail('Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY');
+if (!STRIPE_SECRET_KEY) {
+  fail(
+    LIVE
+      ? 'Defina STRIPE_SECRET_KEY_LIVE (sk_live_…) em scripts/empresaqui-sync/.env ou apps/web/.env.local'
+      : 'Defina STRIPE_SECRET_KEY em apps/web/.env.local',
+  );
+}
+if (LIVE && !STRIPE_SECRET_KEY.startsWith('sk_live_')) {
+  fail('Modo --live exige chave sk_live_…');
+}
+if (!LIVE && STRIPE_SECRET_KEY.startsWith('sk_live_')) {
+  fail('Chave live detectada sem --live. Use: npm run billing:setup -- --live');
+}
+if (!SUPABASE_URL || !SERVICE_ROLE) {
+  fail('Defina URL e service_role do Supabase (prod: PROD_SUPABASE_* )');
+}
 
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-console.log('\n🔧 CEO Brain — setup Stripe (planos + add-ons)\n');
+console.log(`\n🔧 CEO Brain — setup Stripe (${LIVE ? 'LIVE' : 'test'})`);
+console.log(`   Supabase: ${SUPABASE_URL}\n`);
 
 const { data: dbPlans, error: plansErr } = await supabase
   .from('plans')
@@ -174,6 +206,43 @@ for (const addon of ADDONS) {
   envLines.push(`STRIPE_${addon.slug.toUpperCase()}_PRICE=${price.id}`);
 }
 
-console.log('\n── Confira apps/web/.env.local ──\n');
+console.log('\n── Price IDs ──\n');
 for (const line of envLines) console.log(line);
-console.log('\nPróximo: npm run dev → /precos ou /billing\n');
+
+if (LIVE) {
+  const webhookUrl = 'https://www.rainmaker.ia.br/api/stripe/webhook';
+  console.log('\n── Webhook (live) ──\n');
+
+  const existing = await stripe.webhookEndpoints.list({ limit: 100 });
+  let endpoint = existing.data.find((e) => e.url === webhookUrl);
+
+  if (endpoint) {
+    endpoint = await stripe.webhookEndpoints.update(endpoint.id, {
+      enabled_events: WEBHOOK_EVENTS,
+      description: 'RainMaker production',
+    });
+    console.log(`✓ Webhook já existia: ${endpoint.id}`);
+    console.log('  (secret só aparece na criação — use o whsec_ já salvo na Vercel ou recrie o endpoint)');
+  } else {
+    endpoint = await stripe.webhookEndpoints.create({
+      url: webhookUrl,
+      enabled_events: WEBHOOK_EVENTS,
+      description: 'RainMaker production',
+    });
+    console.log(`✓ Webhook criado: ${endpoint.id}`);
+    if (endpoint.secret) {
+      console.log(`✓ STRIPE_WEBHOOK_SECRET=${endpoint.secret.slice(0, 12)}…`);
+      const line = `\n# Stripe live webhook (gerado por billing:setup --live)\nSTRIPE_WEBHOOK_SECRET_LIVE=${endpoint.secret}\n`;
+      if (existsSync(syncEnvPath)) {
+        appendFileSync(syncEnvPath, line);
+        console.log('  Gravado em scripts/empresaqui-sync/.env como STRIPE_WEBHOOK_SECRET_LIVE');
+      }
+    }
+  }
+}
+
+console.log(
+  LIVE
+    ? '\nPróximo: colar STRIPE_SECRET_KEY (live) + STRIPE_WEBHOOK_SECRET (live) na Vercel Production e redeploy.\n'
+    : '\nPróximo: npm run dev → /precos ou /billing\n',
+);

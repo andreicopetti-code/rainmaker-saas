@@ -43,7 +43,9 @@ export async function registerAccount(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://www.ceobrain.com.br';
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+    'https://www.rainmaker.ia.br';
   const safeRedirect = redirectTo.startsWith('/') ? redirectTo : '/funil';
   const emailRedirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(safeRedirect)}`;
 
