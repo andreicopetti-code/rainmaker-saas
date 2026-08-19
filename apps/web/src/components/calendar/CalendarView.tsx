@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   toggleCalendarEventDone,
@@ -66,21 +65,23 @@ function EventChip({
   ev,
   onClick,
   dragging,
-  onPointerDown,
+  onDragStart,
+  onDragEnd,
 }: {
   ev: CalendarEvent;
   onClick: () => void;
   dragging?: boolean;
-  onPointerDown: (e: React.PointerEvent, ev: CalendarEvent) => void;
+  onDragStart: (e: React.DragEvent, ev: CalendarEvent) => void;
+  onDragEnd: () => void;
 }) {
   const display = getApptDisplay(ev.tipo, ev.scheduled_at, ev.done);
   return (
     <div
       role="button"
       tabIndex={0}
-      draggable={false}
-      onPointerDown={(e) => onPointerDown(e, ev)}
-      onDragStart={(e) => e.preventDefault()}
+      draggable
+      onDragStart={(e) => onDragStart(e, ev)}
+      onDragEnd={onDragEnd}
       onClick={(e) => { e.stopPropagation(); if (dragging) return; onClick(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -93,9 +94,9 @@ function EventChip({
       className={`cal-event-chip ${display.statusClass} appt-chip--with-bar${dragging ? ' is-dragging' : ''}`}
       style={{
         ...apptTipoStyle(display.tipoAccent),
+        cursor: 'grab',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        touchAction: 'none',
       }}
     >
       <span
@@ -106,13 +107,6 @@ function EventChip({
       {eventLabel(ev)}
     </div>
   );
-}
-
-function dateFromPoint(x: number, y: number): string | null {
-  const node = document.elementFromPoint(x, y);
-  if (!node) return null;
-  const cell = node instanceof Element ? node.closest('[data-cal-date]') : null;
-  return cell?.getAttribute('data-cal-date') ?? null;
 }
 
 export function CalendarView({ initialEvents, opportunities }: Props) {
@@ -139,7 +133,6 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropDate, setDropDate] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState(false);
-  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
   const skipClickRef = useRef(false);
   const eventsRef = useRef(events);
   eventsRef.current = events;
@@ -186,59 +179,35 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
     setModalOpen(true);
   }
 
-  function handleChipPointerDown(e: React.PointerEvent, ev: CalendarEvent) {
-    if (e.button !== 0) return;
+  function handleChipDragStart(e: React.DragEvent, ev: CalendarEvent) {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ev.id);
+    skipClickRef.current = true;
+    setDraggingId(ev.id);
+  }
+
+  function handleChipDragEnd() {
+    setDraggingId(null);
+    setDropDate(null);
+    window.setTimeout(() => { skipClickRef.current = false; }, 0);
+  }
+
+  function handleDayDragOver(e: React.DragEvent, dateKey: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropDate !== dateKey) setDropDate(dateKey);
+  }
+
+  function handleDayDrop(e: React.DragEvent, dateKey: string) {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const drag = { id: ev.id, active: false };
-
-    const onMove = (move: PointerEvent) => {
-      move.preventDefault();
-      const dist = Math.hypot(move.clientX - startX, move.clientY - startY);
-      if (!drag.active && dist < 6) return;
-      if (!drag.active) {
-        drag.active = true;
-        skipClickRef.current = true;
-        setDraggingId(ev.id);
-        setGhost({ x: move.clientX, y: move.clientY, label: eventLabel(ev) });
-      } else {
-        setGhost((g) => (g ? { ...g, x: move.clientX, y: move.clientY } : g));
-      }
-      const over = dateFromPoint(move.clientX, move.clientY);
-      setDropDate((prev) => (prev === over ? prev : over));
-    };
-
-    const finish = (up: PointerEvent) => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
-      const moved = drag.active;
-      const targetDate = moved ? dateFromPoint(up.clientX, up.clientY) : null;
-      setDraggingId(null);
-      setDropDate(null);
-      setGhost(null);
-      if (!moved) {
-        skipClickRef.current = true;
-        window.setTimeout(() => { skipClickRef.current = false; }, 0);
-        openEdit(ev);
-        return;
-      }
-      window.setTimeout(() => { skipClickRef.current = false; }, 0);
-      const current = eventsRef.current.find((x) => x.id === ev.id);
-      if (current && targetDate) openReschedule(current, targetDate);
-    };
-
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    const id = e.dataTransfer.getData('text/plain') || draggingId;
+    setDraggingId(null);
+    setDropDate(null);
+    skipClickRef.current = true;
+    const current = eventsRef.current.find((x) => x.id === id);
+    if (current) openReschedule(current, dateKey);
   }
 
   function handleDayClick(dateKey: string) {
@@ -254,7 +223,8 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
         openEdit(ev);
       },
       dragging: draggingId === ev.id,
-      onPointerDown: handleChipPointerDown,
+      onDragStart: handleChipDragStart,
+      onDragEnd: handleChipDragEnd,
     };
   }
 
@@ -473,6 +443,8 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                 className={`cal-cell${isToday ? ' today' : ''}${!isCurrentMonth ? ' other-month' : ''}${isExpanded ? ' is-expanded' : ''}${dropDate === key ? ' drop-target' : ''}`}
                 data-cal-date={key}
                 onClick={() => handleDayClick(key)}
+                onDragOver={(e) => handleDayDragOver(e, key)}
+                onDrop={(e) => handleDayDrop(e, key)}
               >
                 <div className={`cal-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
                 <div className="cal-cell-events">
@@ -533,6 +505,8 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                 className={`cal-week-col${isToday ? ' today' : ''}${dropDate === key ? ' drop-target' : ''}`}
                 data-cal-date={key}
                 onClick={() => handleDayClick(key)}
+                onDragOver={(e) => handleDayDragOver(e, key)}
+                onDrop={(e) => handleDayDrop(e, key)}
               >
                 <div className={`cal-week-day-header${isToday ? ' today' : ''}`}>
                   <span className="cal-week-day-name">{WEEK_DAYS[date.getDay()]}</span>
@@ -550,23 +524,6 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
             );
           })}
         </div>
-      )}
-
-      {ghost && createPortal(
-        <div
-          className="cal-event-ghost"
-          style={{
-            left: ghost.x,
-            top: ghost.y,
-            background: 'var(--surface)',
-            color: 'var(--text)',
-            border: '1px solid var(--border)',
-            pointerEvents: 'none',
-          }}
-        >
-          {ghost.label}
-        </div>,
-        document.body,
       )}
 
       {/* ── Modal ── */}
