@@ -22,6 +22,7 @@ type Props = {
   onDeleted: (id: string) => void;
   onToggleDone: (id: string) => void;
   onOpenDeal?: (dealId: string) => void;
+  autoFocusTime?: boolean;
 };
 
 export function CalendarEventModal({
@@ -33,6 +34,7 @@ export function CalendarEventModal({
   onDeleted,
   onToggleDone,
   onOpenDeal,
+  autoFocusTime,
 }: Props) {
   const isEdit = !!event;
 
@@ -201,7 +203,7 @@ export function CalendarEventModal({
               </div>
               <div className="form-group">
                 <label className="form-label">Horário *</label>
-                <input required type="time" className="form-input" value={time} onChange={e => setTime(e.target.value)} />
+                <input required type="time" className="form-input" value={time} onChange={e => setTime(e.target.value)} autoFocus={autoFocusTime} />
               </div>
             </div>
 
