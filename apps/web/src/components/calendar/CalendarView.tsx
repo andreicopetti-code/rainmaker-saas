@@ -78,7 +78,9 @@ function EventChip({
     <div
       role="button"
       tabIndex={0}
+      draggable={false}
       onPointerDown={(e) => onPointerDown(e, ev)}
+      onDragStart={(e) => e.preventDefault()}
       onClick={(e) => { e.stopPropagation(); if (dragging) return; onClick(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -89,7 +91,12 @@ function EventChip({
       }}
       title={`${ev.title} · Arraste para outro dia`}
       className={`cal-event-chip ${display.statusClass} appt-chip--with-bar${dragging ? ' is-dragging' : ''}`}
-      style={apptTipoStyle(display.tipoAccent)}
+      style={{
+        ...apptTipoStyle(display.tipoAccent),
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        touchAction: 'none',
+      }}
     >
       <span
         className="appt-tipo-bar"
@@ -181,15 +188,22 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
 
   function handleChipPointerDown(e: React.PointerEvent, ev: CalendarEvent) {
     if (e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
 
     const startX = e.clientX;
     const startY = e.clientY;
     const drag = { id: ev.id, active: false };
 
     const onMove = (move: PointerEvent) => {
+      move.preventDefault();
       const dist = Math.hypot(move.clientX - startX, move.clientY - startY);
-      if (!drag.active && dist < 8) return;
+      if (!drag.active && dist < 6) return;
       if (!drag.active) {
         drag.active = true;
         skipClickRef.current = true;
@@ -202,17 +216,19 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
       setDropDate((prev) => (prev === over ? prev : over));
     };
 
-    const onUp = (up: PointerEvent) => {
+    const finish = (up: PointerEvent) => {
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
       const moved = drag.active;
       const targetDate = moved ? dateFromPoint(up.clientX, up.clientY) : null;
       setDraggingId(null);
       setDropDate(null);
       setGhost(null);
       if (!moved) {
-        skipClickRef.current = false;
+        skipClickRef.current = true;
+        window.setTimeout(() => { skipClickRef.current = false; }, 0);
+        openEdit(ev);
         return;
       }
       window.setTimeout(() => { skipClickRef.current = false; }, 0);
@@ -220,9 +236,9 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
       if (current && targetDate) openReschedule(current, targetDate);
     };
 
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   }
 
   function handleDayClick(dateKey: string) {
@@ -539,7 +555,14 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
       {ghost && createPortal(
         <div
           className="cal-event-ghost"
-          style={{ left: ghost.x, top: ghost.y, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+          style={{
+            left: ghost.x,
+            top: ghost.y,
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
+            pointerEvents: 'none',
+          }}
         >
           {ghost.label}
         </div>,
