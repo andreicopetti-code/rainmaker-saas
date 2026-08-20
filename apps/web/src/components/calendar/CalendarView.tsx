@@ -6,7 +6,7 @@ import {
   toggleCalendarEventDone,
   deleteCalendarEvent,
 } from '@/app/agenda/actions';
-import { CalendarEventModal } from './CalendarEventModal';
+import { CalendarEventModal, type CalendarCreateSeed } from './CalendarEventModal';
 import { APPOINTMENT_TIPOS } from '@/components/board/types';
 import { AppointmentTipoIcon } from '@/components/board/AppointmentTipoIcon';
 import { getApptDisplay, apptTipoStyle } from '@/lib/appointments/display';
@@ -18,6 +18,7 @@ import {
   isScheduledToday,
   scheduledAtToDate,
   scheduledAtToTime,
+  suggestNextApptDateKey,
   todayInAppTz,
 } from '@/lib/appointments/datetime';
 import { formatPhoneBr, phoneTelHref } from '@/lib/contacts/format-phone';
@@ -159,6 +160,11 @@ export function CalendarView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropDate, setDropDate] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState(false);
+  const [createSeed, setCreateSeed] = useState<CalendarCreateSeed | null>(null);
+  const [nextPrompt, setNextPrompt] = useState<{
+    opportunityId: string;
+    name: string;
+  } | null>(null);
   const skipClickRef = useRef(false);
   const eventsRef = useRef(events);
   eventsRef.current = events;
@@ -187,11 +193,13 @@ export function CalendarView({
 
   function openCreate(date?: string) {
     setEditEvent(null);
+    setCreateSeed(null);
     setDefaultDate(date ?? isoDate(today));
     setFocusTime(false);
     setModalOpen(true);
   }
   function openEdit(ev: CalendarEvent) {
+    setCreateSeed(null);
     setEditEvent(ev);
     setDefaultDate(scheduledAtToDate(ev.scheduled_at));
     setFocusTime(false);
@@ -200,11 +208,30 @@ export function CalendarView({
 
   function openReschedule(ev: CalendarEvent, newDate: string) {
     if (scheduledAtToDate(ev.scheduled_at) === newDate) return;
+    setCreateSeed(null);
     setEditEvent({
       ...ev,
       scheduled_at: buildScheduledAt(newDate, scheduledAtToTime(ev.scheduled_at)),
     });
     setDefaultDate(newDate);
+    setFocusTime(true);
+    setModalOpen(true);
+  }
+
+  function openNextAppointment(prompt: {
+    opportunityId: string;
+    name: string;
+  }) {
+    setNextPrompt(null);
+    setEditEvent(null);
+    setCreateSeed({
+      opportunityId: prompt.opportunityId,
+      tipo: 'followup',
+      title: '',
+      date: suggestNextApptDateKey(),
+      headline: 'Próximo compromisso',
+    });
+    setDefaultDate(suggestNextApptDateKey());
     setFocusTime(true);
     setModalOpen(true);
   }
@@ -304,11 +331,27 @@ export function CalendarView({
   }
 
   function handleToggleDone(id: string) {
-    setEvents((prev) => prev.map((e) => e.id === id ? { ...e, done: !e.done } : e));
+    const ev = eventsRef.current.find((e) => e.id === id);
+    if (!ev) return;
+    const nextDone = !ev.done;
+    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, done: nextDone } : e)));
     startTransition(async () => {
-      const ev = events.find(e => e.id === id);
-      if (ev) await toggleCalendarEventDone(id, !ev.done);
+      await toggleCalendarEventDone(id, nextDone);
     });
+
+    if (nextDone && ev.opportunity_id) {
+      setModalOpen(false);
+      setEditEvent(null);
+      setCreateSeed(null);
+      setNextPrompt({
+        opportunityId: ev.opportunity_id,
+        name:
+          ev.contact_company ||
+          ev.contact_name ||
+          ev.opportunity_title ||
+          ev.title,
+      });
+    }
   }
 
   // Month navigation
@@ -624,18 +667,54 @@ export function CalendarView({
       {/* ── Modal ── */}
       {modalOpen && (
         <CalendarEventModal
-          key={`${editEvent?.id ?? 'new'}-${defaultDate}`}
+          key={`${editEvent?.id ?? 'new'}-${defaultDate}-${createSeed?.opportunityId ?? ''}`}
           event={editEvent}
           defaultDate={defaultDate}
           opportunities={opportunities}
           currentUserId={currentUserId}
-          onClose={() => setModalOpen(false)}
-          onSaved={handleSaved}
+          createSeed={createSeed}
+          onClose={() => {
+            setModalOpen(false);
+            setCreateSeed(null);
+          }}
+          onSaved={(ev) => {
+            handleSaved(ev);
+            setCreateSeed(null);
+          }}
           onDeleted={handleDeleted}
           onToggleDone={handleToggleDone}
           onOpenDeal={openDeal}
           autoFocusTime={focusTime}
         />
+      )}
+
+      {nextPrompt && (
+        <div className="overlay open" onClick={() => setNextPrompt(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">Compromisso concluído</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                  Agendar o próximo com{' '}
+                  <strong style={{ color: 'var(--text2)' }}>{nextPrompt.name}</strong>?
+                </div>
+              </div>
+              <button type="button" className="btn-close" onClick={() => setNextPrompt(null)}>×</button>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="btn-ghost" onClick={() => setNextPrompt(null)}>
+                Agora não
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => openNextAppointment(nextPrompt)}
+              >
+                Agendar próximo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>{/* end main column */}
 

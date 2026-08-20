@@ -13,11 +13,20 @@ import { APPOINTMENT_TIPOS } from '@/components/board/types';
 import type { AppointmentTipo } from '@/components/board/types';
 import type { CalendarEvent, CalendarEventInput } from '@/app/agenda/actions';
 
+export type CalendarCreateSeed = {
+  opportunityId: string;
+  tipo?: AppointmentTipo;
+  title?: string;
+  date?: string;
+  headline?: string;
+};
+
 type Props = {
   event: CalendarEvent | null;
   defaultDate: string;
   opportunities: { id: string; label: string }[];
   currentUserId?: string;
+  createSeed?: CalendarCreateSeed | null;
   onClose: () => void;
   onSaved: (ev: CalendarEvent) => void;
   onDeleted: (id: string) => void;
@@ -31,6 +40,7 @@ export function CalendarEventModal({
   defaultDate,
   opportunities,
   currentUserId,
+  createSeed,
   onClose,
   onSaved,
   onDeleted,
@@ -39,17 +49,24 @@ export function CalendarEventModal({
   autoFocusTime,
 }: Props) {
   const isEdit = !!event;
+  const isNext = !isEdit && !!createSeed;
 
-  const initDate = event ? scheduledAtToDate(event.scheduled_at) : (defaultDate || todayInAppTz());
+  const initDate = event
+    ? scheduledAtToDate(event.scheduled_at)
+    : (createSeed?.date || defaultDate || todayInAppTz());
   const initTime = event ? scheduledAtToTime(event.scheduled_at) : nextFullHourInAppTz();
 
-  const [tipo, setTipo] = useState<AppointmentTipo>(event?.tipo ?? 'ligacao');
-  const [title, setTitle] = useState(event?.title ?? '');
+  const [tipo, setTipo] = useState<AppointmentTipo>(
+    event?.tipo ?? createSeed?.tipo ?? 'followup',
+  );
+  const [title, setTitle] = useState(event?.title ?? createSeed?.title ?? '');
   const [date, setDate] = useState(initDate);
   const [time, setTime] = useState(initTime);
   const [location, setLocation] = useState(event?.location ?? '');
   const [note, setNote] = useState(event?.note ?? '');
-  const [oppId, setOppId] = useState<string>(event?.opportunity_id ?? '');
+  const [oppId, setOppId] = useState<string>(
+    event?.opportunity_id ?? createSeed?.opportunityId ?? '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +132,15 @@ export function CalendarEventModal({
   }
 
   const currentTipo = APPOINTMENT_TIPOS.find((t) => t.id === tipo);
+  const modalTitle = isEdit
+    ? 'Editar Compromisso'
+    : isNext
+      ? (createSeed?.headline ?? 'Próximo compromisso')
+      : 'Novo Compromisso';
+  const linkedName =
+    (isEdit && event
+      ? event.contact_company || event.contact_name || event.opportunity_title
+      : opportunities.find((o) => o.id === oppId)?.label) || null;
 
   return (
     <div className="overlay open" onClick={onClose}>
@@ -122,12 +148,10 @@ export function CalendarEventModal({
         {/* Header */}
         <div className="modal-header">
           <div>
-            <div className="modal-title">{isEdit ? 'Editar Compromisso' : 'Novo Compromisso'}</div>
-            {isEdit && event?.opportunity_title && (
+            <div className="modal-title">{modalTitle}</div>
+            {linkedName && (
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                Para: <strong style={{ color: 'var(--text2)' }}>
-                  {event.contact_company || event.contact_name || event.opportunity_title}
-                </strong>
+                Para: <strong style={{ color: 'var(--text2)' }}>{linkedName}</strong>
               </div>
             )}
           </div>
@@ -214,7 +238,12 @@ export function CalendarEventModal({
             {/* Vincular a deal */}
             <div className="form-group">
               <label className="form-label">Vincular a deal do funil</label>
-              <select className="form-input form-select" value={oppId} onChange={e => setOppId(e.target.value)}>
+              <select
+                className="form-input form-select"
+                value={oppId}
+                onChange={e => setOppId(e.target.value)}
+                disabled={isNext && !!createSeed?.opportunityId}
+              >
                 <option value="">— Evento independente —</option>
                 {opportunities.map(o => (
                   <option key={o.id} value={o.id}>{o.label}</option>
@@ -262,7 +291,7 @@ export function CalendarEventModal({
             <div className="modal-footer-right">
               <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
               <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Criar compromisso'}
+                {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : isNext ? 'Agendar próximo' : 'Criar compromisso'}
               </button>
             </div>
           </div>

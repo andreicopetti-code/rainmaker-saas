@@ -106,3 +106,23 @@ export function nextFullHourInAppTz(): string {
   const next = (hour + 1) % 24;
   return `${String(next).padStart(2, '0')}:00`;
 }
+
+/** Soma dias a uma data `YYYY-MM-DD` (meio-dia local para evitar DST). */
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  const d = new Date(`${dateKey}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Próxima data útil sugerida (+3 dias; se cair no fim de semana, sobe para segunda). */
+export function suggestNextApptDateKey(fromDateKey = todayInAppTz()): string {
+  let key = addDaysToDateKey(fromDateKey, 3);
+  const d = new Date(`${key}T12:00:00`);
+  const weekday = d.getDay(); // 0=dom 6=sab
+  if (weekday === 6) key = addDaysToDateKey(key, 2);
+  else if (weekday === 0) key = addDaysToDateKey(key, 1);
+  return key;
+}
