@@ -85,12 +85,21 @@ export default async function FunilPage() {
 
   // ── Round 4: next appointments (needs oppIds from round 3) ───────────────
   const oppIds = (rows ?? []).map((r) => (r as unknown as { id: string }).id);
-  type ApptRow = { opportunity_id: string; id: string; tipo: string; title: string; scheduled_at: string; done: boolean };
+  type ApptRow = {
+    opportunity_id: string;
+    id: string;
+    tipo: string;
+    title: string;
+    scheduled_at: string;
+    done: boolean;
+    location: string | null;
+    note: string | null;
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: nextApptRows } = oppIds.length
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? await (supabase as unknown as any).from('appointments')
-        .select('opportunity_id, id, tipo, title, scheduled_at, done')
+        .select('opportunity_id, id, tipo, title, scheduled_at, done, location, note')
         .in('opportunity_id', oppIds)
         .eq('done', false)
         .order('scheduled_at', { ascending: true })
@@ -105,6 +114,8 @@ export default async function FunilPage() {
         title: a.title,
         scheduled_at: a.scheduled_at,
         done: a.done,
+        location: a.location,
+        note: a.note,
       });
     }
   }

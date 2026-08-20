@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { TIERS } from '@ceo-brain/shared';
 import {
   createAppointment,
@@ -200,6 +201,7 @@ export function OpportunityModal({
   onSave,
   onDelete,
 }: Props) {
+  const router = useRouter();
   const [form, setForm] = useState<OpportunityFormData>(emptyForm(initialStage, currentUserId));
   const isAdmin = isOrgAdmin(userRole);
   const selfMember =
@@ -351,17 +353,20 @@ export function OpportunityModal({
     const updated = await getOpportunityAppointments(opportunity.id);
     setAppointments(updated);
     setApptForm({ open: false, editing: null });
+    router.refresh();
   }
 
   async function handleToggleAppt(appt: Appointment) {
     await toggleAppointmentDone(appt.id, !appt.done);
     setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, done: !a.done } : a));
+    router.refresh();
   }
 
   async function handleDeleteAppt(id: string) {
     if (!confirm('Apagar este compromisso?')) return;
     await deleteAppointment(id);
     setAppointments((prev) => prev.filter((a) => a.id !== id));
+    router.refresh();
   }
 
   async function lookupCNPJ() {

@@ -16,7 +16,11 @@ import { isLostStage } from '@/lib/ceo/stage-utils';
 import { KanbanColumn } from './KanbanColumn';
 import { LostReasonModal } from './LostReasonModal';
 import { OpportunityModal } from './OpportunityModal';
-import { AppointmentQuickModal } from './AppointmentQuickModal';
+import {
+  AppointmentQuickModal,
+  type AppointmentQuickSeed,
+} from './AppointmentQuickModal';
+import { suggestNextApptDateKey } from '@/lib/appointments/datetime';
 import type { FunnelData, NextAppointment, OrgMember, OpportunityItem } from './types';
 
 type Props = {
@@ -54,6 +58,11 @@ export function KanbanBoard({
   const [editing, setEditing] = useState<OpportunityItem | null>(null);
   const [schedOpp, setSchedOpp] = useState<OpportunityItem | null>(null);
   const [schedExisting, setSchedExisting] = useState<NextAppointment | null | undefined>(undefined);
+  const [schedSeed, setSchedSeed] = useState<AppointmentQuickSeed | null>(null);
+  const [nextPrompt, setNextPrompt] = useState<{
+    opportunityId: string;
+    name: string;
+  } | null>(null);
   const [lostMove, setLostMove] = useState<{
     id: string;
     targetStage: string;
@@ -61,6 +70,40 @@ export function KanbanBoard({
     dealName: string;
   } | null>(null);
   const [, startTransition] = useTransition();
+
+  function dealDisplayName(opp: OpportunityItem) {
+    return opp.contact?.company || opp.contact?.name || opp.title;
+  }
+
+  function openSchedule(
+    opp: OpportunityItem,
+    existing?: NextAppointment,
+    seed?: AppointmentQuickSeed | null,
+  ) {
+    setNextPrompt(null);
+    setSchedOpp(opp);
+    setSchedExisting(existing);
+    setSchedSeed(seed ?? null);
+  }
+
+  function openNextFromPrompt(prompt: { opportunityId: string; name: string }) {
+    const opp = localOpps.find((o) => o.id === prompt.opportunityId);
+    if (!opp) {
+      setNextPrompt(null);
+      return;
+    }
+    openSchedule(opp, undefined, {
+      tipo: 'followup',
+      date: suggestNextApptDateKey(),
+      headline: 'Próximo compromisso',
+    });
+  }
+
+  function closeSchedule() {
+    setSchedOpp(null);
+    setSchedExisting(undefined);
+    setSchedSeed(null);
+  }
 
   // sync when server refreshes (but not during active drag)
   useMemo(() => {
@@ -181,14 +224,22 @@ export function KanbanBoard({
 
     setLocalOpps(newOpps);
 
+    const prevById = new Map(prevOpps.map((o) => [o.id, o]));
+    const orderUpdates = updatedStage
+      .map((o) => ({ id: o.id, sort_order: o.sort_order ?? 0 }))
+      .filter((u) => {
+        const prev = prevById.get(u.id);
+        return !prev || prev.stage !== targetStage || (prev.sort_order ?? 0) !== u.sort_order;
+      });
+
     startTransition(async () => {
       try {
         if (!sameStage) {
           await moveOpportunity(id, funnel.stageConfig, targetStage, lostReason);
         }
-        await reorderOpportunities(
-          updatedStage.map((o) => ({ id: o.id, sort_order: o.sort_order ?? 0 })),
-        );
+        if (orderUpdates.length > 0) {
+          await reorderOpportunities(orderUpdates);
+        }
         router.refresh();
       } catch (err) {
         setLocalOpps(prevOpps);
@@ -274,37 +325,86 @@ export function KanbanBoard({
             onDrop={handleDrop}
             onCardClick={openEdit}
             onCardDelete={handleCardDelete}
-            onCardSchedule={(opp, existing) => {
-              setSchedOpp(opp);
-              setSchedExisting(existing);
-            }}
+            onCardSchedule={(opp, existing) => openSchedule(opp, existing)}
           />
         ))}
       </div>
 
       {schedOpp && (
         <AppointmentQuickModal
+          key={`${schedOpp.id}-${schedExisting?.id ?? 'new'}-${schedSeed?.date ?? ''}`}
           opportunityId={schedOpp.id}
-          opportunityName={
-            schedOpp.contact?.company ||
-            schedOpp.contact?.name ||
-            schedOpp.title
-          }
+          opportunityName={dealDisplayName(schedOpp)}
           existing={schedExisting ?? undefined}
-          onClose={() => { setSchedOpp(null); setSchedExisting(undefined); }}
-          onSaved={(appt) => {
+          seed={schedSeed}
+          onClose={closeSchedule}
+          onSaved={(appt, meta) => {
             const oppId = schedOpp.id;
-            // Optimistic update: apply new appointment immediately to the card
+            const name = dealDisplayName(schedOpp);
             setLocalOpps((prev) =>
               prev.map((o) =>
-                o.id === oppId ? { ...o, next_appointment: appt ?? null } : o,
+                o.id === oppId
+                  ? {
+                      ...o,
+                      next_appointment: appt ?? null,
+                      ...(meta?.activityAt ? { updated_at: meta.activityAt } : {}),
+                    }
+                  : o,
               ),
             );
-            setSchedOpp(null);
-            setSchedExisting(undefined);
+            closeSchedule();
+
+            if (meta?.scheduleNext) {
+              const opp = localOpps.find((o) => o.id === oppId) ?? schedOpp;
+              // Defer so the done-modal unmounts before opening create
+              queueMicrotask(() => {
+                openSchedule(
+                  { ...opp, next_appointment: appt ?? null },
+                  undefined,
+                  {
+                    tipo: 'followup',
+                    date: suggestNextApptDateKey(),
+                    headline: 'Próximo compromisso',
+                  },
+                );
+              });
+            } else if (meta?.activityAt && !appt) {
+              // Only prompt when the deal has no remaining open appointment
+              setNextPrompt({ opportunityId: oppId, name });
+            }
+
             startTransition(() => router.refresh());
           }}
         />
+      )}
+
+      {nextPrompt && (
+        <div className="overlay open" onClick={() => setNextPrompt(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">Compromisso concluído</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                  Agendar o próximo com{' '}
+                  <strong style={{ color: 'var(--text2)' }}>{nextPrompt.name}</strong>?
+                </div>
+              </div>
+              <button type="button" className="btn-close" onClick={() => setNextPrompt(null)}>×</button>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="btn-ghost" onClick={() => setNextPrompt(null)}>
+                Agora não
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => openNextFromPrompt(nextPrompt)}
+              >
+                Agendar próximo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <LostReasonModal

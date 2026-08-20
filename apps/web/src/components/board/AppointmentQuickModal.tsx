@@ -1,45 +1,77 @@
 'use client';
 
 import { useState } from 'react';
-import { createAppointment, updateAppointment, deleteAppointment } from '@/app/funil/appointmentActions';
+import {
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
+  toggleAppointmentDone,
+} from '@/app/funil/appointmentActions';
 import {
   buildScheduledAt,
   nextFullHourInAppTz,
   scheduledAtToDate,
   scheduledAtToTime,
+  suggestNextApptDateKey,
   todayInAppTz,
 } from '@/lib/appointments/datetime';
 import { APPOINTMENT_TIPOS } from './types';
 import type { AppointmentTipo, NextAppointment } from './types';
+
+export type AppointmentQuickSeed = {
+  tipo?: AppointmentTipo;
+  date?: string;
+  headline?: string;
+};
+
+export type AppointmentQuickSavedMeta = {
+  scheduleNext?: boolean;
+  activityAt?: string | null;
+};
 
 type Props = {
   opportunityId: string;
   opportunityName: string;
   /** If provided, the modal is in edit mode */
   existing?: NextAppointment;
+  /** Prefill for create mode (e.g. next follow-up after Cumprido) */
+  seed?: AppointmentQuickSeed | null;
   onClose: () => void;
-  /** Called with the updated/created appointment so the card can update immediately */
-  onSaved: (appt: NextAppointment | null) => void;
+  /** Called with the updated/created/next appointment so the card can update immediately */
+  onSaved: (appt: NextAppointment | null, meta?: AppointmentQuickSavedMeta) => void;
 };
 
 export function AppointmentQuickModal({
   opportunityId,
   opportunityName,
   existing,
+  seed,
   onClose,
   onSaved,
 }: Props) {
   const isEdit = !!existing;
+  const isNext = !isEdit && !!seed;
 
-  const [tipo, setTipo] = useState<AppointmentTipo>(existing?.tipo ?? 'ligacao');
+  const [tipo, setTipo] = useState<AppointmentTipo>(
+    existing?.tipo ?? seed?.tipo ?? 'ligacao',
+  );
   const [title, setTitle] = useState(existing?.title ?? '');
-  const [date, setDate] = useState(existing ? scheduledAtToDate(existing.scheduled_at) : todayInAppTz());
-  const [time, setTime] = useState(existing ? scheduledAtToTime(existing.scheduled_at) : nextFullHourInAppTz());
-  const [location, setLocation] = useState('');
-  const [note, setNote] = useState('');
+  const [date, setDate] = useState(
+    existing
+      ? scheduledAtToDate(existing.scheduled_at)
+      : (seed?.date ?? todayInAppTz()),
+  );
+  const [time, setTime] = useState(
+    existing ? scheduledAtToTime(existing.scheduled_at) : nextFullHourInAppTz(),
+  );
+  const [location, setLocation] = useState(existing?.location ?? '');
+  const [note, setNote] = useState(existing?.note ?? '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [markingDone, setMarkingDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const busy = saving || deleting || markingDone;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,17 +86,35 @@ export function AppointmentQuickModal({
         note: note.trim() || undefined,
       };
       if (isEdit && existing) {
-        await updateAppointment(existing.id, payload);
-        onSaved({ id: existing.id, tipo, title: payload.title, scheduled_at: payload.scheduled_at, done: existing.done });
+        const saved = await updateAppointment(existing.id, payload);
+        onSaved(saved);
       } else {
-        await createAppointment(opportunityId, payload);
-        onSaved({ id: crypto.randomUUID(), tipo, title: payload.title, scheduled_at: payload.scheduled_at, done: false });
+        const created = await createAppointment(opportunityId, payload);
+        onSaved(created);
       }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleMarkDone(scheduleNext: boolean) {
+    if (!existing || existing.done) return;
+    setMarkingDone(true);
+    setError(null);
+    try {
+      const result = await toggleAppointmentDone(existing.id, true);
+      onSaved(result.next, {
+        scheduleNext,
+        activityAt: result.activityAt,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao marcar como cumprido');
+    } finally {
+      setMarkingDone(false);
     }
   }
 
@@ -84,14 +134,16 @@ export function AppointmentQuickModal({
   }
 
   const currentTipo = APPOINTMENT_TIPOS.find((t) => t.id === tipo);
+  const modalTitle = isEdit
+    ? 'Editar Compromisso'
+    : (seed?.headline ?? (isNext ? 'Próximo compromisso' : 'Agendar Compromisso'));
 
   return (
     <div className="overlay open" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="modal-header">
           <div>
-            <div className="modal-title">{isEdit ? 'Editar Compromisso' : 'Agendar Compromisso'}</div>
+            <div className="modal-title">{modalTitle}</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
               Para: <strong style={{ color: 'var(--text2)' }}>{opportunityName}</strong>
             </div>
@@ -107,7 +159,6 @@ export function AppointmentQuickModal({
               </div>
             )}
 
-            {/* Tipo */}
             <div className="form-group">
               <label className="form-label">Tipo de compromisso *</label>
               <select className="form-input form-select" value={tipo} onChange={(e) => setTipo(e.target.value as AppointmentTipo)}>
@@ -117,7 +168,6 @@ export function AppointmentQuickModal({
               </select>
             </div>
 
-            {/* Título */}
             <div className="form-group">
               <label className="form-label">Título / Descrição</label>
               <input
@@ -128,7 +178,6 @@ export function AppointmentQuickModal({
               />
             </div>
 
-            {/* Data + Hora */}
             <div className="form-row cols2">
               <div className="form-group">
                 <label className="form-label">Data *</label>
@@ -140,29 +189,50 @@ export function AppointmentQuickModal({
               </div>
             </div>
 
-            {/* Local / Link */}
             <div className="form-group">
               <label className="form-label">Local / Link</label>
               <input className="form-input" placeholder="Escritório, Google Meet, Zoom…" value={location} onChange={(e) => setLocation(e.target.value)} />
             </div>
 
-            {/* Observações */}
             <div className="form-group">
               <label className="form-label">Observações</label>
               <textarea rows={3} className="form-input form-textarea" placeholder="Contexto, pauta, preparação necessária…" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
           </div>
 
-          <div className="modal-footer">
+          <div className="modal-footer" style={{ flexWrap: 'wrap', gap: 8 }}>
             {isEdit ? (
-              <button type="button" className="btn-ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)33' }} onClick={handleDelete} disabled={deleting}>
+              <button type="button" className="btn-ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)33' }} onClick={handleDelete} disabled={busy}>
                 {deleting ? 'Excluindo…' : 'Excluir'}
               </button>
             ) : <span />}
-            <div className="modal-footer-right">
-              <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-              <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Agendar'}
+            <div className="modal-footer-right" style={{ flexWrap: 'wrap' }}>
+              {isEdit && !existing?.done ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ color: 'var(--green)', borderColor: 'var(--green)55' }}
+                    onClick={() => handleMarkDone(false)}
+                    disabled={busy}
+                  >
+                    {markingDone ? '…' : '✓ Cumprido'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ color: 'var(--blue-dark)', borderColor: 'var(--blue)55' }}
+                    onClick={() => handleMarkDone(true)}
+                    disabled={busy}
+                    title={`Sugere ${suggestNextApptDateKey()} · follow-up`}
+                  >
+                    Cumprido e próximo
+                  </button>
+                </>
+              ) : null}
+              <button type="button" className="btn-ghost" onClick={onClose} disabled={busy}>Cancelar</button>
+              <button type="submit" className="btn-primary" disabled={busy}>
+                {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : isNext ? 'Agendar próximo' : 'Agendar'}
               </button>
             </div>
           </div>

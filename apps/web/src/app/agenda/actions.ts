@@ -233,10 +233,26 @@ export async function updateCalendarEvent(
 /** Toggle done state */
 export async function toggleCalendarEventDone(id: string, done: boolean): Promise<void> {
   const { supabase, org } = await getOrgAndUser();
-  await appts(supabase)
+
+  const { data: appt } = await appts(supabase)
+    .select('opportunity_id')
+    .eq('id', id)
+    .eq('organization_id', org.organization_id)
+    .maybeSingle();
+
+  const { error } = await appts(supabase)
     .update({ done, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('organization_id', org.organization_id);
+  if (error) throw new Error(error.message);
+
+  if (done && appt?.opportunity_id) {
+    await supabase
+      .from('opportunities')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', appt.opportunity_id)
+      .eq('organization_id', org.organization_id);
+  }
 }
 
 /** Delete an event */

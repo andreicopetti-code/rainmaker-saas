@@ -143,6 +143,8 @@ export type NextAppointment = {
   title: string;
   scheduled_at: string;
   done: boolean;
+  location?: string | null;
+  note?: string | null;
 };
 
 /* ── Org member ─────────────────────────────────────────────────────────────── */
