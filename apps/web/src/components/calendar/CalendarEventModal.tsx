@@ -17,6 +17,7 @@ type Props = {
   event: CalendarEvent | null;
   defaultDate: string;
   opportunities: { id: string; label: string }[];
+  currentUserId?: string;
   onClose: () => void;
   onSaved: (ev: CalendarEvent) => void;
   onDeleted: (id: string) => void;
@@ -29,6 +30,7 @@ export function CalendarEventModal({
   event,
   defaultDate,
   opportunities,
+  currentUserId,
   onClose,
   onSaved,
   onDeleted,
@@ -101,6 +103,8 @@ export function CalendarEventModal({
           contact_company: oppLabel,
           contact_name: null,
           contact_phone: null,
+          created_by: currentUserId ?? '',
+          assignee_id: currentUserId ?? '',
         });
       }
     } catch (err) {

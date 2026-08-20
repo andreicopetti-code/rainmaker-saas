@@ -18,11 +18,16 @@ import {
   isScheduledToday,
   scheduledAtToDate,
   scheduledAtToTime,
+  todayInAppTz,
 } from '@/lib/appointments/datetime';
 import { formatPhoneBr, phoneTelHref } from '@/lib/contacts/format-phone';
+import { memberDisplayName } from '@/lib/org/member-display';
 import type { CalendarEvent } from '@/app/agenda/actions';
+import type { OrgMember } from '@/components/board/types';
 
 type View = 'mes' | 'semana';
+type SidePanel = 'none' | 'pipeline' | 'overdue';
+type PersonFilter = 'all' | string;
 
 function fmtPipelineDate(iso: string) {
   return formatApptPipelineDate(iso);
@@ -41,7 +46,20 @@ const MONTH_NAMES = [
 type Props = {
   initialEvents: CalendarEvent[];
   opportunities: { id: string; label: string }[];
+  members: OrgMember[];
+  currentUserId: string;
 };
+
+function daysOverdueLabel(iso: string): string {
+  const today = todayInAppTz();
+  const day = appDateKey(iso);
+  const t0 = new Date(`${today}T12:00:00`);
+  const t1 = new Date(`${day}T12:00:00`);
+  const days = Math.max(0, Math.floor((t0.getTime() - t1.getTime()) / 86400000));
+  if (days === 0) return 'hoje';
+  if (days === 1) return '1 dia';
+  return `${days} dias`;
+}
 
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -109,7 +127,12 @@ function EventChip({
   );
 }
 
-export function CalendarView({ initialEvents, opportunities }: Props) {
+export function CalendarView({
+  initialEvents,
+  opportunities,
+  members,
+  currentUserId,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -128,14 +151,21 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   const [defaultDate, setDefaultDate] = useState<string>('');
   const [expandDay, setExpandDay] = useState<string | null>(null);
   const expandRef = useRef<HTMLDivElement>(null);
-  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [sidePanel, setSidePanel] = useState<SidePanel>('none');
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const [personFilter, setPersonFilter] = useState<PersonFilter>(
+    () => (members.length > 1 ? currentUserId : 'all'),
+  );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropDate, setDropDate] = useState<string | null>(null);
   const [focusTime, setFocusTime] = useState(false);
   const skipClickRef = useRef(false);
   const eventsRef = useRef(events);
   eventsRef.current = events;
+
+  useEffect(() => {
+    setEvents(initialEvents);
+  }, [initialEvents]);
 
   useEffect(() => {
     if (!expandDay) return;
@@ -302,20 +332,26 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   function prevWeek() { setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; }); }
   function nextWeek() { setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; }); }
 
-  // Events by date key
+  const showPersonFilter = members.length > 1;
+
+  const filteredEvents = useMemo(() => {
+    if (personFilter === 'all') return events;
+    return events.filter((ev) => ev.assignee_id === personFilter);
+  }, [events, personFilter]);
+
+  // Events by date key (respects person filter)
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    for (const ev of events) {
+    for (const ev of filteredEvents) {
       const key = appDateKey(ev.scheduled_at);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ev);
     }
-    // sort each day by time
     map.forEach((list) => list.sort((a, b) =>
       new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
     ));
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   /* ── MONTH VIEW ─────────────────────────────────────────────────────── */
   const monthGrid = useMemo(() => {
@@ -366,25 +402,25 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   const pipelineStages = useMemo(() => {
     const seen = new Set<string>();
     const list: string[] = [];
-    for (const ev of events) {
+    for (const ev of filteredEvents) {
       if (ev.opportunity_stage && !seen.has(ev.opportunity_stage)) {
         seen.add(ev.opportunity_stage);
         list.push(ev.opportunity_stage);
       }
     }
     return list;
-  }, [events]);
+  }, [filteredEvents]);
 
   // Pipeline: all events sorted chronologically, pending first then done
   const pipelineEvents = useMemo(() => {
     const filtered = stageFilter
-      ? events.filter(ev => ev.opportunity_stage === stageFilter)
-      : events;
+      ? filteredEvents.filter(ev => ev.opportunity_stage === stageFilter)
+      : filteredEvents;
     return [...filtered].sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1;
       return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
     });
-  }, [events, stageFilter]);
+  }, [filteredEvents, stageFilter]);
 
   // Group pipeline events by date label
   const pipelineGroups = useMemo(() => {
@@ -401,6 +437,16 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
     }
     return groups;
   }, [pipelineEvents]);
+
+  const overdueEvents = useMemo(() => {
+    return filteredEvents
+      .filter((ev) => !ev.done && getApptDisplay(ev.tipo, ev.scheduled_at, ev.done).status === 'overdue')
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [filteredEvents]);
+
+  function toggleSidePanel(panel: Exclude<SidePanel, 'none'>) {
+    setSidePanel((prev) => (prev === panel ? 'none' : panel));
+  }
 
   return (
     <div className="cal-wrap" style={{ flexDirection: 'row', padding: 0 }}>
@@ -425,13 +471,39 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+          {showPersonFilter && (
+            <select
+              className="cal-person-filter"
+              value={personFilter}
+              onChange={(e) => setPersonFilter(e.target.value as PersonFilter)}
+              title="Filtrar por responsável"
+              aria-label="Filtrar por responsável"
+            >
+              <option value="all">Todos</option>
+              <option value={currentUserId}>Eu</option>
+              {members
+                .filter((m) => m.user_id !== currentUserId)
+                .map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {memberDisplayName(m)}
+                  </option>
+                ))}
+            </select>
+          )}
           <button
-            className={`cal-view-btn${pipelineOpen ? ' active' : ''}`}
-            onClick={() => setPipelineOpen(o => !o)}
+            className={`cal-view-btn${sidePanel === 'overdue' ? ' active' : ''}${overdueEvents.length > 0 ? ' cal-view-btn--warn' : ''}`}
+            onClick={() => toggleSidePanel('overdue')}
+            title="Compromissos atrasados"
+          >
+            Atrasados{overdueEvents.length > 0 ? ` (${overdueEvents.length})` : ''}
+          </button>
+          <button
+            className={`cal-view-btn${sidePanel === 'pipeline' ? ' active' : ''}`}
+            onClick={() => toggleSidePanel('pipeline')}
             title="Abrir painel pipeline"
           >
-            ⚡ Pipeline
+            Pipeline
           </button>
           <button className="btn-primary" style={{ padding: '6px 14px', fontSize: 12 }} onClick={() => openCreate()}>
             + Novo Evento
@@ -556,6 +628,7 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
           event={editEvent}
           defaultDate={defaultDate}
           opportunities={opportunities}
+          currentUserId={currentUserId}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
@@ -566,12 +639,111 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
       )}
     </div>{/* end main column */}
 
+    {/* ── Overdue side panel ── */}
+    <div className={`cal-pipeline${sidePanel === 'overdue' ? ' open' : ''}`}>
+      <div className="cal-pipeline-header">
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="cal-pipeline-title">Atrasados</span>
+          <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>
+            {overdueEvents.length === 0
+              ? 'Nada pendente'
+              : `${overdueEvents.length} compromisso(s)`}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="cal-nav-btn"
+          onClick={() => setSidePanel('none')}
+          title="Fechar"
+          style={{ fontSize: 16 }}
+        >
+          ›
+        </button>
+      </div>
+      <div className="cal-pipeline-body">
+        {overdueEvents.length === 0 && (
+          <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 13, color: 'var(--text3)' }}>
+            Nenhum compromisso atrasado
+            {personFilter !== 'all' ? ' neste filtro' : ''}.
+          </div>
+        )}
+        {overdueEvents.map((ev) => {
+          const tipo = APPOINTMENT_TIPOS.find((t) => t.id === ev.tipo);
+          const { date, time } = fmtPipelineDate(ev.scheduled_at);
+          const display = getApptDisplay(ev.tipo, ev.scheduled_at, ev.done);
+          const name = ev.contact_company || ev.contact_name || ev.opportunity_title || ev.title;
+          return (
+            <div
+              key={ev.id}
+              role="button"
+              tabIndex={0}
+              className="cal-pipeline-item overdue"
+              onClick={() => openEdit(ev)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openEdit(ev);
+                }
+              }}
+            >
+              <div className="cal-pipeline-time">{time}</div>
+              <div
+                className="cal-pipeline-bar"
+                style={{ background: display.tipoAccent }}
+              />
+              <div
+                className="cal-pipeline-content cal-pipeline-content--overdue"
+                style={apptTipoStyle(display.tipoAccent)}
+              >
+                <div className="cal-pipeline-name">{name}</div>
+                <div className="cal-pipeline-meta">
+                  <span className="cal-pipeline-tipo">
+                    <AppointmentTipoIcon tipo={ev.tipo} badge size={9} />
+                    {tipo?.label ?? ev.tipo}
+                  </span>
+                  <span className="cal-overdue-badge">
+                    {date} · {daysOverdueLabel(ev.scheduled_at)}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="cal-overdue-done"
+                title="Marcar feito"
+                aria-label="Marcar feito"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleDone(ev.id);
+                }}
+              >
+                ✓
+              </button>
+              {ev.opportunity_id && (
+                <button
+                  type="button"
+                  className="cal-pipeline-open-deal"
+                  title="Abrir negócio no funil"
+                  aria-label="Abrir negócio no funil"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDeal(ev.opportunity_id!);
+                  }}
+                >
+                  ↗
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
     {/* ── Pipeline side panel ── */}
-    <div className={`cal-pipeline${pipelineOpen ? ' open' : ''}`}>
+    <div className={`cal-pipeline${sidePanel === 'pipeline' ? ' open' : ''}`}>
       {/* Panel header */}
       <div className="cal-pipeline-header">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="cal-pipeline-title">⚡ Pipeline</span>
+          <span className="cal-pipeline-title">Pipeline</span>
           <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>
             {pipelineEvents.filter(e => !e.done).length} pendente(s)
           </span>
@@ -579,7 +751,7 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
         <button
           type="button"
           className="cal-nav-btn"
-          onClick={() => setPipelineOpen(false)}
+          onClick={() => setSidePanel('none')}
           title="Fechar pipeline"
           style={{ fontSize: 16 }}
         >

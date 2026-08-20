@@ -1227,6 +1227,43 @@ body {
 }
 .cal-view-btn:hover { background: var(--surface2); }
 .cal-view-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+.cal-view-btn--warn:not(.active) {
+  color: var(--red);
+  border-color: #FCA5A5;
+  background: var(--red-bg, #FEF2F2);
+}
+.cal-person-filter {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 12px;
+  font-family: inherit;
+  max-width: 160px;
+}
+.cal-overdue-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--red);
+}
+.cal-overdue-done {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #FCA5A5;
+  background: var(--red-bg, #FEF2F2);
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+.cal-overdue-done:hover {
+  background: #FEE2E2;
+}
 
 /* Week-day header */
 .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
