@@ -182,7 +182,17 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
   function handleChipDragStart(e: React.DragEvent, ev: CalendarEvent) {
     e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/calendar-event-id', ev.id);
     e.dataTransfer.setData('text/plain', ev.id);
+    // Transparent drag image keeps the chip readable; empty canvas avoids text-selection ghost.
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      e.dataTransfer.setDragImage(canvas, 0, 0);
+    } catch {
+      /* ignore */
+    }
     skipClickRef.current = true;
     setDraggingId(ev.id);
   }
@@ -195,17 +205,28 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
 
   function handleDayDragOver(e: React.DragEvent, dateKey: string) {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     if (dropDate !== dateKey) setDropDate(dateKey);
+  }
+
+  function handleDayDragLeave(e: React.DragEvent, dateKey: string) {
+    const next = e.relatedTarget;
+    if (next instanceof Node && e.currentTarget.contains(next)) return;
+    setDropDate((prev) => (prev === dateKey ? null : prev));
   }
 
   function handleDayDrop(e: React.DragEvent, dateKey: string) {
     e.preventDefault();
     e.stopPropagation();
-    const id = e.dataTransfer.getData('text/plain') || draggingId;
+    const id =
+      e.dataTransfer.getData('text/calendar-event-id') ||
+      e.dataTransfer.getData('text/plain') ||
+      draggingId;
     setDraggingId(null);
     setDropDate(null);
     skipClickRef.current = true;
+    window.setTimeout(() => { skipClickRef.current = false; }, 0);
     const current = eventsRef.current.find((x) => x.id === id);
     if (current) openReschedule(current, dateKey);
   }
@@ -444,6 +465,7 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                 data-cal-date={key}
                 onClick={() => handleDayClick(key)}
                 onDragOver={(e) => handleDayDragOver(e, key)}
+                onDragLeave={(e) => handleDayDragLeave(e, key)}
                 onDrop={(e) => handleDayDrop(e, key)}
               >
                 <div className={`cal-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
@@ -506,6 +528,7 @@ export function CalendarView({ initialEvents, opportunities }: Props) {
                 data-cal-date={key}
                 onClick={() => handleDayClick(key)}
                 onDragOver={(e) => handleDayDragOver(e, key)}
+                onDragLeave={(e) => handleDayDragLeave(e, key)}
                 onDrop={(e) => handleDayDrop(e, key)}
               >
                 <div className={`cal-week-day-header${isToday ? ' today' : ''}`}>
