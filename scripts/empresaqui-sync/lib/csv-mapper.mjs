@@ -6,26 +6,26 @@ import { normalizeCnpj, normalizeCep, trimOrNull, parseDate } from './normalize.
  */
 const HEADER_ALIASES = {
   cnpj: ['cnpj', 'cnpj completo', 'cnpj/cpf', 'numero cnpj', 'nº cnpj'],
-  razao_social: ['razao social', 'razão social', 'nome empresarial', 'empresa'],
+  razao_social: ['razao social', 'razão social', 'nome empresarial', 'empresa', 'razao'],
   nome_fantasia: ['nome fantasia', 'fantasia'],
   estado: ['uf', 'estado', 'sigla uf'],
-  situacao: ['situacao', 'situação', 'situacao cadastral', 'situação cadastral', 'status'],
+  situacao: ['situacao', 'situação', 'situacao cadastral', 'situação cadastral', 'situacao cad.', 'status'],
   porte: ['porte', 'porte da empresa'],
   regime_tributario: ['regime tributario', 'regime tributário', 'regime'],
   regime_historico: ['regime historico', 'regime histórico', 'historico regime'],
-  cnae_codigo: ['cnae', 'codigo cnae', 'código cnae', 'cnae principal', 'cod cnae'],
-  cnae_descricao: ['descricao cnae', 'descrição cnae', 'atividade principal', 'descricao atividade'],
+  cnae_codigo: ['cnae', 'codigo cnae', 'código cnae', 'cnae principal', 'cod cnae', 'cnae codigo'],
+  cnae_descricao: ['descricao cnae', 'descrição cnae', 'atividade principal', 'descricao atividade', 'texto cnae principal', 'cnae descricao'],
   telefone: ['telefone', 'tel', 'telefone 1', 'fone'],
   email: ['email', 'e-mail', 'e mail'],
   endereco: ['endereco', 'endereço', 'logradouro', 'endereco completo'],
   bairro: ['bairro'],
   cidade: ['cidade', 'municipio', 'município'],
   cep: ['cep'],
-  faturamento_est: ['faturamento', 'faturamento estimado', 'faturamento presunto', 'receita estimada'],
-  funcionarios: ['funcionarios', 'funcionários', 'qtd funcionarios', 'numero funcionarios'],
+  faturamento_est: ['faturamento', 'faturamento estimado', 'faturamento_est', 'faturamento presunto', 'receita estimada'],
+  funcionarios: ['funcionarios', 'funcionários', 'qtd funcionarios', 'numero funcionarios', 'quadro de funcionarios'],
   data_inicio: ['data abertura', 'data de abertura', 'inicio atividade', 'início atividade', 'data inicio'],
   socios: ['socios', 'sócios', 'quadro societario', 'quadro societário', 'qsa'],
-  total_dividas: ['dividas', 'dívidas', 'total dividas', 'total dívidas', 'dividas ativas'],
+  total_dividas: ['dividas', 'dívidas', 'total dividas', 'total dívidas', 'dividas ativas', 'total_dividas'],
   segmento: ['segmento', 'setor', 'segmento de mercado'],
 };
 
@@ -34,7 +34,8 @@ function normalizeHeader(h) {
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/_/g, ' ');
 }
 
 /**

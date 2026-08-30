@@ -1,0 +1,18 @@
+{
+  "name": "@ceo-brain/empresa-cleaner",
+  "private": true,
+  "type": "module",
+  "description": "Limpeza determinística de arquivos Empresaqui para o CEO Brain",
+  "scripts": {
+    "clean": "node src/clean.mjs",
+    "prepare": "node src/prepare.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "csv-parse": "^6.2.1",
+    "read-excel-file": "^9.3.4"
+  }
+}

@@ -103,8 +103,9 @@ const db = (supabase: Awaited<ReturnType<typeof createClient>>) => supabase as a
  * Atualizar ao importar um novo estado.
  */
 const EMPRESAS_UF_FALLBACK: Record<string, number> = {
-  RS: Number(process.env.EMPRESAS_RS_COUNT ?? 304_515),
+  RS: Number(process.env.EMPRESAS_RS_COUNT ?? 375_016),
   SE: Number(process.env.EMPRESAS_SE_COUNT ?? 170_501),
+  AC: Number(process.env.EMPRESAS_AC_COUNT ?? 54_838),
 };
 
 function sumUfFallback(ufs: string[] | null): number {
@@ -176,10 +177,14 @@ export async function searchCnpjPreview(cnpj: string): Promise<{
     .from('empresas')
     .select('cnpj,razao_social,nome_fantasia,situacao,cidade,estado,regime_tributario,regime_historico')
     .eq('cnpj', raw)
-    .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return { data: null, error: 'CNPJ não encontrado na base' };
+  // maybeSingle: 0 rows → data null / sem erro; erro real de rede/RLS não vira "não encontrado"
+  if (error) {
+    console.error('[searchCnpjPreview]', error.message);
+    return { data: null, error: 'Falha ao consultar a base de empresas' };
+  }
+  if (!data) return { data: null, error: 'CNPJ não encontrado na base' };
   return { data: data as EmpresaPreview, error: null };
 }
 
@@ -258,10 +263,13 @@ export async function getEmpresaDetail(cnpj: string): Promise<{
     .from('empresas')
     .select('*')
     .eq('cnpj', raw)
-    .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return { data: null, error: 'CNPJ não encontrado na base', usage };
+  if (error) {
+    console.error('[getEmpresaDetail]', error.message);
+    return { data: null, error: 'Falha ao consultar a base de empresas', usage };
+  }
+  if (!data) return { data: null, error: 'CNPJ não encontrado na base', usage };
   return { data: data as EmpresaDetail, error: null, usage };
 }
 

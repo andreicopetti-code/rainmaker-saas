@@ -39,7 +39,13 @@ export function requireEnv(name) {
   return val;
 }
 
-export function getSupabaseConfig() {
+export function getSupabaseConfig({ preferProd = false } = {}) {
+  if (preferProd || env('SUPABASE_TARGET') === 'prod') {
+    return {
+      url: requireEnv('PROD_SUPABASE_URL'),
+      serviceRoleKey: requireEnv('PROD_SUPABASE_SERVICE_ROLE_KEY'),
+    };
+  }
   return {
     url: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
     serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),

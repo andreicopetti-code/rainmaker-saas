@@ -70,10 +70,11 @@ async function main() {
   const args = process.argv.slice(2);
   const inspect = args.includes('--inspect');
   const dryRun = args.includes('--dry-run');
+  const preferProd = args.includes('--prod');
   const paths = args.filter((a) => !a.startsWith('--'));
 
   if (paths.length === 0) {
-    console.error('Uso: node ingest/upsert-from-dir.mjs <dir|arquivo.csv> [--inspect] [--dry-run]');
+    console.error('Uso: node ingest/upsert-from-dir.mjs <dir|arquivo.csv> [--inspect] [--dry-run] [--prod]');
     process.exit(1);
   }
 
@@ -84,7 +85,11 @@ async function main() {
     process.exit(1);
   }
 
-  const supabase = dryRun ? null : getSupabaseConfig();
+  const supabase = dryRun ? null : getSupabaseConfig({ preferProd });
+  if (supabase) {
+    const host = new URL(supabase.url).host;
+    console.log(`Destino Supabase: ${host}${preferProd ? ' (prod)' : ''}`);
+  }
   let totalUpserted = 0;
 
   for (const file of files) {

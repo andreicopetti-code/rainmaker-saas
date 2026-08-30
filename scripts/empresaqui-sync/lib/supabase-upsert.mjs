@@ -31,7 +31,7 @@ export async function upsertEmpresas(rows, { url, serviceRoleKey, includeId = fa
         return out;
       });
 
-  const res = await fetch(`${url}/rest/v1/empresas`, {
+  const res = await fetch(`${url}/rest/v1/empresas?on_conflict=cnpj`, {
     method: 'POST',
     headers: {
       apikey: serviceRoleKey,

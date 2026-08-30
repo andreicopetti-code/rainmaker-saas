@@ -25,3 +25,8 @@ coverage/
 
 # legacy snapshot (manter no repo se quiser referência)
 # ceo_brain_files/
+
+.vercel
+.env*
+
+scripts/.prod-anon.tmp
