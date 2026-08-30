@@ -134,8 +134,8 @@ export async function updateSession(request: NextRequest) {
           });
         }
       } catch {
-        // Falha na checagem — não bloqueia o app
-        hasAccess = true;
+        // Fail-closed: sem confirmação de assinatura, redireciona para billing
+        hasAccess = false;
       }
     }
 

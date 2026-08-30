@@ -16,7 +16,10 @@ export async function getBillingAccessForUser(
 
   if (error || !data) {
     console.error('[billing] get_billing_access RPC failed:', error?.message);
-    return { hasAccess: true, blockReason: null };
+    return {
+      hasAccess: false,
+      blockReason: 'Não foi possível verificar sua assinatura. Tente novamente em instantes.',
+    };
   }
 
   const row = data as BillingAccessRpc;

@@ -37,9 +37,9 @@ export const PRECOS_PLANS: PrecosPlanCopy[] = [
     description: 'Ideal para conhecer a plataforma e iniciar sua prospecção.',
     priceAmount: 'Grátis',
     checklist: [
-      'Explore a base nacional de empresas',
-      'Acesse até 3 empresas qualificadas por mês',
-      'Até 5 empresas no funil',
+      'Preview da base de empresas (dados básicos de CNPJ)',
+      'Acesse até 3 fichas completas de empresa por mês',
+      'Até 30 oportunidades no funil',
       'CRM inteligente integrado',
       'Dashboard comercial para acompanhar resultados',
       'Agenda comercial inteligente',

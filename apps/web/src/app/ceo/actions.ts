@@ -44,6 +44,42 @@ export type AskResult =
     }
   | { error: string };
 
+type AiConsumeResult = {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining?: number;
+  reason?: string;
+};
+
+async function consumeAiQuota(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<{ ok: true; used: number; limit: number } | { ok: false; error: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('consume_ai_request', {
+    p_org_id: orgId,
+  });
+
+  if (error) {
+    console.error('[ceo] consume_ai_request RPC failed:', error.message);
+    return { ok: false, error: 'Não foi possível verificar sua cota de IA. Tente novamente.' };
+  }
+
+  const result = data as AiConsumeResult;
+  if (!result?.allowed) {
+    if (result.reason === 'feature_disabled') {
+      return { ok: false, error: 'RainMaker IA não está incluído no seu plano. Faça upgrade para usar.' };
+    }
+    return {
+      ok: false,
+      error: `Você atingiu o limite de ${result.limit} consultas de IA deste mês. Faça upgrade do plano para continuar.`,
+    };
+  }
+
+  return { ok: true, used: result.used, limit: result.limit };
+}
+
 function parseRetrySeconds(message: string): number | null {
   const match = message.match(/try again in ([\d.]+)s/i);
   if (!match) return null;
@@ -392,8 +428,6 @@ export async function askCeo(
       orgId,
       opps,
       stageConfig,
-      aiUsed,
-      aiLimit,
       ceoBrainEnabled,
       agendaEvents,
       compromissosAtrasados,
@@ -404,10 +438,9 @@ export async function askCeo(
       return { error: 'RainMaker IA não está incluído no seu plano. Faça upgrade para usar.' };
     }
 
-    if (aiUsed >= aiLimit) {
-      return {
-        error: `Você atingiu o limite de ${aiLimit} consultas de IA deste mês. Faça upgrade do plano para continuar.`,
-      };
+    const quota = await consumeAiQuota(supabase, orgId);
+    if (!quota.ok) {
+      return { error: quota.error };
     }
 
     const context      = buildFunnelContext(opps, stageConfig);
@@ -437,11 +470,12 @@ export async function askCeo(
         : messages;
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user: sessionUser },
+    } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
-    if (!token) return { error: 'Sessão expirada. Faça login novamente.' };
+    if (!sessionUser || !token) return { error: 'Sessão expirada. Faça login novamente.' };
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/proxy-ai`;
     const temperature =
@@ -478,27 +512,22 @@ export async function askCeo(
     const usedModel =
       (typeof data.model === 'string' && data.model) || model;
 
-    await supabase.from('ai_requests').insert({
+    const { error: logError } = await supabase.from('ai_requests').insert({
       organization_id: orgId,
       user_id: user.id,
       model: usedModel,
       prompt_tokens: usage?.prompt_tokens ?? null,
       completion_tokens: usage?.completion_tokens ?? null,
     });
-
-    const periodKey = new Date().toISOString().slice(0, 7);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).rpc('increment_usage_counter', {
-      p_org_id: orgId,
-      p_kind: 'ai_request',
-      p_period_key: periodKey,
-    });
+    if (logError) {
+      console.error('[ceo] ai_requests insert failed:', logError.message);
+    }
 
     return {
       content,
       usage,
-      aiUsed: aiUsed + 1,
-      aiLimit,
+      aiUsed: quota.used,
+      aiLimit: quota.limit,
     };
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'Erro desconhecido';
