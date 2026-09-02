@@ -4,8 +4,8 @@
   "type": "module",
   "description": "Limpeza determinística de arquivos Empresaqui para o CEO Brain",
   "scripts": {
-    "clean": "node src/clean.mjs",
-    "prepare": "node src/prepare.mjs",
+    "clean": "node --max-old-space-size=8192 src/clean.mjs",
+    "prepare": "node --max-old-space-size=8192 src/prepare.mjs",
     "test": "node --test"
   },
   "engines": {

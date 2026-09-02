@@ -385,6 +385,7 @@ async function processCsv(filePath, companies, rejected, stats) {
     relax_quotes: true,
     skip_empty_lines: true,
     trim: true,
+    max_record_size: 0, // sem limite — evita erro em campos grandes
   }));
 
   for await (const raw of parser) {

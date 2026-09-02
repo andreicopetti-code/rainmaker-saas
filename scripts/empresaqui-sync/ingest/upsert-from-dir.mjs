@@ -9,10 +9,10 @@
 
 import { readdirSync, statSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
-import { parseEmpresaquiFile } from './parse-file.mjs';
+import { parseEmpresaquiFile, forEachCsvBatch } from './parse-file.mjs';
 import { buildHeaderMap, mapRowsToEmpresas, printHeaderInspection } from '../lib/csv-mapper.mjs';
 import { getSupabaseConfig } from '../lib/env.mjs';
-import { upsertEmpresasBatched } from '../lib/supabase-upsert.mjs';
+import { upsertEmpresasBatched, BATCH } from '../lib/supabase-upsert.mjs';
 
 const DATA_EXTS = new Set(['.csv', '.xlsx', '.xls']);
 
@@ -32,8 +32,59 @@ function collectFiles(dir) {
   return files.sort();
 }
 
+async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun = false }) {
+  /** @type {Record<string, string> | null} */
+  let headerMap = null;
+  let rows = 0;
+  let skipped = 0;
+  let parsed = 0;
+  let upserted = 0;
+  const start = Date.now();
+
+  await forEachCsvBatch(filePath, BATCH, async (headers, batch) => {
+    if (!headerMap) {
+      if (headers.length === 0) return;
+      headerMap = buildHeaderMap(headers);
+      if (inspect) printHeaderInspection(headers);
+      if (!headerMap.cnpj) {
+        throw new Error(`CNPJ não mapeado em ${filePath}`);
+      }
+    }
+
+    rows += batch.length;
+    const { empresas, skipped: batchSkipped } = mapRowsToEmpresas(batch, headerMap);
+    skipped += batchSkipped;
+    parsed += empresas.length;
+
+    if (!dryRun && empresas.length > 0) {
+      upserted += await upsertEmpresasBatched(empresas, {
+        ...supabase,
+        onProgress: (n) => {
+          process.stdout.write(`\r  ↑  ${(upserted + n).toLocaleString('pt-BR')} upserted`);
+        },
+      });
+    }
+  });
+
+  if (!headerMap) {
+    console.warn('  ⚠️  Arquivo vazio ou sem cabeçalho — ignorado.');
+    return { file: filePath, upserted: 0, skipped: 0 };
+  }
+
+  console.log(`  → ${rows.toLocaleString('pt-BR')} linhas | ${parsed.toLocaleString('pt-BR')} válidas | ${skipped} sem CNPJ`);
+  if (!dryRun) {
+    const sec = ((Date.now() - start) / 1000).toFixed(1);
+    console.log(`\r  ✓  ${upserted.toLocaleString('pt-BR')} registros upserted em ${sec}s`);
+  }
+  return { file: filePath, upserted, skipped, parsed };
+}
+
 async function ingestFile(filePath, supabase, { inspect = false, dryRun = false }) {
   console.log(`\n📄  ${filePath}`);
+  if (extname(filePath).toLowerCase() === '.csv') {
+    return ingestCsvStreaming(filePath, supabase, { inspect, dryRun });
+  }
+
   const { headers, rows } = parseEmpresaquiFile(filePath);
 
   if (headers.length === 0) {

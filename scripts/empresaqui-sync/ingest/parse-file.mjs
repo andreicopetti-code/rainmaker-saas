@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
 import { extname } from 'node:path';
-import { parse } from 'csv-parse/sync';
+import { parse } from 'csv-parse';
+import { parse as parseSync } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
 
 /**
@@ -24,7 +25,7 @@ function parseCsv(filePath) {
   const raw = readFileSync(filePath);
   const text = decodeCsvBuffer(raw);
 
-  const records = parse(text, {
+  const records = parseSync(text, {
     columns: true,
     skip_empty_lines: true,
     relax_column_count: true,
@@ -47,6 +48,50 @@ function decodeCsvBuffer(buf) {
   const asUtf8 = buf.toString('utf8');
   if (!asUtf8.includes('\ufffd')) return asUtf8;
   return buf.toString('latin1');
+}
+
+/** @param {string} filePath */
+function detectDelimiterFromFile(filePath) {
+  const sample = readFileSync(filePath).subarray(0, 8192);
+  const text = decodeCsvBuffer(sample);
+  return detectDelimiter(text);
+}
+
+/**
+ * Processa CSV em lotes sem carregar o arquivo inteiro na memória.
+ * @param {string} filePath
+ * @param {number} batchSize
+ * @param {(headers: string[], rows: Record<string, string>[]) => Promise<void>} onBatch
+ */
+export async function forEachCsvBatch(filePath, batchSize, onBatch) {
+  const delimiter = detectDelimiterFromFile(filePath);
+  /** @type {string[] | null} */
+  let headers = null;
+  /** @type {Record<string, string>[]} */
+  let batch = [];
+
+  const parser = createReadStream(filePath).pipe(parse({
+    bom: true,
+    columns: true,
+    delimiter,
+    skip_empty_lines: true,
+    relax_column_count: true,
+    trim: true,
+    max_record_size: 0,
+  }));
+
+  for await (const row of parser) {
+    if (!headers) headers = Object.keys(row);
+    batch.push(row);
+    if (batch.length >= batchSize) {
+      await onBatch(headers ?? [], batch);
+      batch = [];
+    }
+  }
+
+  if (batch.length > 0) {
+    await onBatch(headers ?? [], batch);
+  }
 }
 
 /** @param {string} sample */
