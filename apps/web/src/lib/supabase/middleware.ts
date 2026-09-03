@@ -14,6 +14,29 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   });
 }
 
+/** Evita 504 MIDDLEWARE_INVOCATION_TIMEOUT quando Auth/Postgres estão lentos (disco cheio). */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`middleware_timeout_${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+function hasSupabaseAuthCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some(
+    (c) => c.name.includes('auth-token') || c.name.startsWith('sb-'),
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -65,15 +88,22 @@ export async function updateSession(request: NextRequest) {
   );
 
   let user = null;
+  let authTimedOut = false;
   try {
     ({
       data: { user },
-    } = await supabase.auth.getUser());
+    } = await withTimeout(supabase.auth.getUser(), 4_000));
   } catch {
-    // Supabase indisponível — deixa a página carregar; rotas protegidas redirecionam no server component
+    authTimedOut = true;
+    // Auth/Postgres lento: não bloqueia o middleware até o 504 da Vercel.
   }
 
+  // Sem user confirmado: em rota protegida, só manda p/ login se não há cookie de sessão.
+  // Se o Auth timeoutou mas o cookie existe, deixa a página/SSR decidir (fail-open temporário).
   if (!user && isProtected) {
+    if (authTimedOut && hasSupabaseAuthCookie(request)) {
+      return supabaseResponse;
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirect', request.nextUrl.pathname);
@@ -119,7 +149,10 @@ export async function updateSession(request: NextRequest) {
 
     if (hasAccess === undefined) {
       try {
-        const billing = await getBillingAccessForUser(supabase, user.id);
+        const billing = await withTimeout(
+          getBillingAccessForUser(supabase, user.id),
+          3_000,
+        );
         hasAccess = billing.hasAccess;
         if (billing.hasAccess) {
           supabaseResponse.cookies.set(
@@ -134,8 +167,8 @@ export async function updateSession(request: NextRequest) {
           });
         }
       } catch {
-        // Fail-closed: sem confirmação de assinatura, redireciona para billing
-        hasAccess = false;
+        // Timeout/DB lento: não manda para /billing (evita loop + 504). SSR revalida depois.
+        hasAccess = true;
       }
     }
 

@@ -10,11 +10,20 @@ export default async function EmpresasPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/');
 
+  const withDeadline = <T,>(p: Promise<T>, fallback: T, ms = 8_000) =>
+    Promise.race([
+      p,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+    ]);
+
   const [empresaCount, usage, history, ufSettings] = await Promise.all([
-    getEmpresaCount().catch(() => 0),
-    getCnpjUsage().catch(() => ({ used: 0, limit: 0, remaining: 0 } as const)),
-    getCnpjHistory().catch(() => []),
-    getOrganizationUfSettings().catch(() => null),
+    withDeadline(getEmpresaCount().catch(() => 0), 0),
+    withDeadline(
+      getCnpjUsage().catch(() => ({ used: 0, limit: 0, remaining: 0 } as const)),
+      { used: 0, limit: 0, remaining: 0 } as const,
+    ),
+    withDeadline(getCnpjHistory().catch(() => []), []),
+    withDeadline(getOrganizationUfSettings().catch(() => null), null),
   ]);
 
   return (
