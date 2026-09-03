@@ -107,15 +107,22 @@ const EMPRESAS_UF_FALLBACK: Record<string, number> = {
   AL: Number(process.env.EMPRESAS_AL_COUNT ?? 235_653),
   AM: Number(process.env.EMPRESAS_AM_COUNT ?? 289_117),
   AP: Number(process.env.EMPRESAS_AP_COUNT ?? 51_489),
+  CE: Number(process.env.EMPRESAS_CE_COUNT ?? 751_190),
   DF: Number(process.env.EMPRESAS_DF_COUNT ?? 471_967),
+  ES: Number(process.env.EMPRESAS_ES_COUNT ?? 608_030),
+  GO: Number(process.env.EMPRESAS_GO_COUNT ?? 1_042_139),
   MA: Number(process.env.EMPRESAS_MA_COUNT ?? 378_384),
   MS: Number(process.env.EMPRESAS_MS_COUNT ?? 380_785),
+  MT: Number(process.env.EMPRESAS_MT_COUNT ?? 567_771),
   PA: Number(process.env.EMPRESAS_PA_COUNT ?? 500_000),
   PB: Number(process.env.EMPRESAS_PB_COUNT ?? 358_324),
+  PE: Number(process.env.EMPRESAS_PE_COUNT ?? 770_441),
   PI: Number(process.env.EMPRESAS_PI_COUNT ?? 246_940),
+  PR: Number(process.env.EMPRESAS_PR_COUNT ?? 2_001_527),
   RN: Number(process.env.EMPRESAS_RN_COUNT ?? 307_389),
   RO: Number(process.env.EMPRESAS_RO_COUNT ?? 171_107),
   RS: Number(process.env.EMPRESAS_RS_COUNT ?? 374_984),
+  SC: Number(process.env.EMPRESAS_SC_COUNT ?? 1_556_763),
   SE: Number(process.env.EMPRESAS_SE_COUNT ?? 170_485),
   TO: Number(process.env.EMPRESAS_TO_COUNT ?? 180_667),
 };
@@ -150,15 +157,8 @@ export async function getEmpresaCount(): Promise<number> {
   if (!error && typeof data === 'number') return data;
   if (!error && typeof data === 'string' && /^\d+$/.test(data)) return Number(data);
 
-  // Fallback: COUNT direto (role authenticated com timeout maior) + mapa estático
-  let query = db(supabase)
-    .from('empresas')
-    .select('cnpj', { count: 'exact', head: true });
-  if (ufs) query = query.in('estado', ufs);
-
-  const { count, error: countError } = await query;
-  if (!countError && typeof count === 'number') return count;
-
+  // Não fazer COUNT(*) exact aqui: em tabela grande / disco saturado estoura
+  // statement_timeout (~30s) e deixa /empresas no skeleton ou 504.
   return sumUfFallback(ufs);
 }
 

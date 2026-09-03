@@ -32,7 +32,7 @@ function collectFiles(dir) {
   return files.sort();
 }
 
-async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun = false }) {
+async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun = false, skipRows = 0 }) {
   /** @type {Record<string, string> | null} */
   let headerMap = null;
   let rows = 0;
@@ -40,6 +40,9 @@ async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun 
   let parsed = 0;
   let upserted = 0;
   const start = Date.now();
+  if (skipRows > 0) {
+    console.log(`  ↷  pulando as primeiras ${skipRows.toLocaleString('pt-BR')} linhas válidas`);
+  }
 
   await forEachCsvBatch(filePath, BATCH, async (headers, batch) => {
     if (!headerMap) {
@@ -54,13 +57,19 @@ async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun 
     rows += batch.length;
     const { empresas, skipped: batchSkipped } = mapRowsToEmpresas(batch, headerMap);
     skipped += batchSkipped;
+
+    let toSend = empresas;
+    if (skipRows > parsed) {
+      const remainingSkip = skipRows - parsed;
+      toSend = empresas.slice(remainingSkip);
+    }
     parsed += empresas.length;
 
-    if (!dryRun && empresas.length > 0) {
-      upserted += await upsertEmpresasBatched(empresas, {
+    if (!dryRun && toSend.length > 0) {
+      upserted += await upsertEmpresasBatched(toSend, {
         ...supabase,
         onProgress: (n) => {
-          process.stdout.write(`\r  ↑  ${(upserted + n).toLocaleString('pt-BR')} upserted`);
+          process.stdout.write(`\r  ↑  ${(skipRows + upserted + n).toLocaleString('pt-BR')} upserted`);
         },
       });
     }
@@ -79,10 +88,10 @@ async function ingestCsvStreaming(filePath, supabase, { inspect = false, dryRun 
   return { file: filePath, upserted, skipped, parsed };
 }
 
-async function ingestFile(filePath, supabase, { inspect = false, dryRun = false }) {
+async function ingestFile(filePath, supabase, { inspect = false, dryRun = false, skipRows = 0 }) {
   console.log(`\n📄  ${filePath}`);
   if (extname(filePath).toLowerCase() === '.csv') {
-    return ingestCsvStreaming(filePath, supabase, { inspect, dryRun });
+    return ingestCsvStreaming(filePath, supabase, { inspect, dryRun, skipRows });
   }
 
   const { headers, rows } = parseEmpresaquiFile(filePath);
@@ -122,10 +131,17 @@ async function main() {
   const inspect = args.includes('--inspect');
   const dryRun = args.includes('--dry-run');
   const preferProd = args.includes('--prod');
-  const paths = args.filter((a) => !a.startsWith('--'));
+  const skipRowsArg = args.find((a) => a.startsWith('--skip-rows='));
+  const skipRowsIdx = args.indexOf('--skip-rows');
+  const skipRows = skipRowsArg
+    ? Number(skipRowsArg.split('=')[1])
+    : skipRowsIdx >= 0
+      ? Number(args[skipRowsIdx + 1])
+      : 0;
+  const paths = args.filter((a, i) => !a.startsWith('--') && (skipRowsIdx < 0 || i !== skipRowsIdx + 1));
 
-  if (paths.length === 0) {
-    console.error('Uso: node ingest/upsert-from-dir.mjs <dir|arquivo.csv> [--inspect] [--dry-run] [--prod]');
+  if (paths.length === 0 || !Number.isFinite(skipRows) || skipRows < 0) {
+    console.error('Uso: node ingest/upsert-from-dir.mjs <dir|arquivo.csv> [--inspect] [--dry-run] [--prod] [--skip-rows N]');
     process.exit(1);
   }
 
@@ -144,7 +160,11 @@ async function main() {
   let totalUpserted = 0;
 
   for (const file of files) {
-    const result = await ingestFile(file, supabase, { inspect: inspect && files[0] === file, dryRun });
+    const result = await ingestFile(file, supabase, {
+      inspect: inspect && files[0] === file,
+      dryRun,
+      skipRows: files[0] === file ? skipRows : 0,
+    });
     totalUpserted += result.upserted ?? 0;
   }
 

@@ -3,7 +3,7 @@
  * Idempotente por cnpj (unique). Lotes de 1.000 via REST PostgREST.
  */
 
-export const BATCH = 1000;
+export const BATCH = Number(process.env.EMPRESAS_UPSERT_BATCH || 1000) || 1000;
 
 /** Colunas de negócio (sem id) para ingest Empresaqui */
 export const EMPRESA_COLS = [
@@ -30,21 +30,38 @@ export async function upsertEmpresas(rows, { url, serviceRoleKey, includeId = fa
         return out;
       });
 
-  const res = await fetch(`${url}/rest/v1/empresas?on_conflict=cnpj`, {
-    method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(payload),
-  });
+  const maxAttempts = 6;
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const res = await fetch(`${url}/rest/v1/empresas?on_conflict=cnpj`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
+    if (res.ok) return;
+
     const body = await res.text();
-    throw new Error(`Upsert failed: ${res.status} ${body}`);
+    lastError = `${res.status} ${body}`;
+    const timedOut =
+      body.includes('57014') ||
+      body.includes('55P03') ||
+      /statement timeout/i.test(body) ||
+      /lock timeout/i.test(body);
+    const retryable = timedOut || res.status === 502 || res.status === 503 || res.status === 504;
+    if (!retryable || attempt === maxAttempts) {
+      throw new Error(`Upsert failed: ${lastError}`);
+    }
+    const waitMs = Math.min(60_000, 3_000 * 2 ** (attempt - 1));
+    process.stdout.write(`\n  ↻  lock/timeout, nova tentativa ${attempt + 1}/${maxAttempts} em ${waitMs / 1000}s\n`);
+    await new Promise((r) => setTimeout(r, waitMs));
   }
+  throw new Error(`Upsert failed: ${lastError}`);
 }
 
 /**
@@ -53,11 +70,15 @@ export async function upsertEmpresas(rows, { url, serviceRoleKey, includeId = fa
  */
 export async function upsertEmpresasBatched(rows, cfg) {
   let done = 0;
+  const pauseMs = Number(process.env.EMPRESAS_UPSERT_PAUSE_MS || 0) || 0;
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
     await upsertEmpresas(chunk, cfg);
     done += chunk.length;
     cfg.onProgress?.(done);
+    if (pauseMs > 0 && i + BATCH < rows.length) {
+      await new Promise((r) => setTimeout(r, pauseMs));
+    }
   }
   return done;
 }
