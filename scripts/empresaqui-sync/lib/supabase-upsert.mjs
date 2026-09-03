@@ -7,11 +7,10 @@ export const BATCH = 1000;
 
 /** Colunas de negócio (sem id) para ingest Empresaqui */
 export const EMPRESA_COLS = [
-  'cnpj', 'razao_social', 'nome_fantasia', 'estado', 'situacao', 'porte',
-  'regime_tributario', 'regime_historico', 'cnae_codigo', 'cnae_descricao',
-  'telefone', 'email', 'endereco', 'bairro', 'cidade', 'cep',
-  'faturamento_est', 'funcionarios', 'data_inicio', 'socios',
-  'total_dividas', 'segmento',
+  'cnpj', 'razao_social', 'nome_fantasia', 'situacao',
+  'endereco', 'bairro', 'cidade', 'estado', 'cep',
+  'telefone', 'email', 'cnae_codigo', 'cnae_descricao',
+  'regime_historico', 'socios', 'data_inicio',
 ];
 
 /**

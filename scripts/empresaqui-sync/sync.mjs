@@ -58,6 +58,16 @@ function parseArgs(argv) {
     manualDownload: flags.has('--manual-download'),
     csvFiles,
     resume: flags.has('--resume'),
+    downloadOnly: flags.has('--download-only'),
+    noResume: flags.has('--no-resume'),
+    startPart: (() => {
+      const v = getVal('--start-part');
+      return v ? Math.max(0, parseInt(v, 10) - 1) : undefined;
+    })(),
+    endPart: (() => {
+      const v = getVal('--end-part');
+      return v ? parseInt(v, 10) : undefined;
+    })(),
     skipDownload: flags.has('--skip-download'),
     path: argv.find((a) => !a.startsWith('--') && !argv[argv.indexOf(a) - 1]?.startsWith('--')),
   };
@@ -182,6 +192,9 @@ async function main() {
       manualDownload: args.manualDownload,
       manualLogin: args.manualLogin || !existsSync(AUTH_STATE_PATH),
       discover: args.discover,
+      resumeDownloads: !args.noResume,
+      startPart: args.startPart,
+      endPart: args.endPart,
     });
 
     if (args.discover) return;
@@ -189,6 +202,11 @@ async function main() {
     const files = Array.isArray(file) ? file : [file];
     console.log(`  ✓  ${files.length} arquivo(s)${count != null ? ` (${count.toLocaleString('pt-BR')} empresas)` : ''}`);
     for (const f of files) console.log(`      ${f}`);
+
+    if (args.downloadOnly || args.dryRun) {
+      console.log(`\n✅  Download concluído (${files.length} arquivo(s)). Ingest não executado.`);
+      return;
+    }
 
     if (!args.dryRun) {
       let total = 0;

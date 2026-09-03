@@ -5,8 +5,8 @@
   "appHomePaths": ["/acesso", "/acesso/inicio", "/inicio", "/home", "/painel"],
   "timeouts": {
     "navigationMs": 120000,
-    "exportMs": 300000,
-    "betweenExportsMs": 45000
+    "exportMs": 600000,
+    "betweenExportsMs": 20000
   },
   "selectors": {
     "emailInput": "input[placeholder='Email'], input[type='email']",

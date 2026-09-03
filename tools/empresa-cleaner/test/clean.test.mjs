@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   OUTPUT_COLUMNS,
   formatDebt,
+  formatRegimeHistory,
   isValidCnpj,
   normalizeAddress,
   normalizeEmail,
@@ -57,7 +58,7 @@ test('limita a cinco sócios e prioriza cargos de gestão', () => {
 test('normaliza regimes sem inventar classificação ambígua', () => {
   assert.deepEqual(normalizeRegime('SIMPLES NACIONAL'), {
     current: 'Simples Nacional',
-    history: null,
+    history: 'Simples Nacional',
     ambiguous: false,
   });
   assert.deepEqual(normalizeRegime('PRESUMIDO OU LUCRO REAL'), {
@@ -67,12 +68,44 @@ test('normaliza regimes sem inventar classificação ambígua', () => {
   });
 });
 
+test('remove ANO do histórico de regime', () => {
+  assert.equal(
+    formatRegimeHistory('ANO 2023 LUCRO REAL, ANO 2024 LUCRO REAL, '),
+    '2024 - Lucro Real; 2023 - Lucro Real',
+  );
+  assert.equal(
+    formatRegimeHistory('ANO 2016 LUCRO REAL, ANO 2017 LUCRO REAL, ANO 2018 LUCRO REAL, ANO 2019 LUCRO REAL, ANO 2020 LUCRO REAL, ANO 2021 LUCRO REAL, ANO 2022 LUCRO REAL, ANO 2023 LUCRO REAL, ANO 2024 LUCRO REAL,'),
+    '2024 - Lucro Real; 2023 - Lucro Real; 2022 - Lucro Real; 2021 - Lucro Real; 2020 - Lucro Real',
+  );
+  assert.equal(
+    normalizeRegime('ANO 2023 LUCRO REAL, ANO 2024 LUCRO REAL, ').history,
+    '2024 Lucro Real; 2023 Lucro Real',
+  );
+});
+
 test('normaliza dívida como moeda brasileira', () => {
   assert.equal(parseDebtAmount('R$2855,35'), 2855.35);
   assert.equal(formatDebt('R$2855,35'), 'R$ 2.855,35');
   assert.equal(formatDebt('R$'), null);
 });
 
-test('mantém total_dividas como última coluna', () => {
-  assert.equal(OUTPUT_COLUMNS.at(-1), 'total_dividas');
+test('perfil enxuto termina em data_inicio', () => {
+  assert.deepEqual(OUTPUT_COLUMNS, [
+    'cnpj',
+    'razao_social',
+    'nome_fantasia',
+    'situacao',
+    'endereco',
+    'bairro',
+    'cidade',
+    'estado',
+    'cep',
+    'telefone',
+    'email',
+    'cnae_codigo',
+    'cnae_descricao',
+    'regime_historico',
+    'socios',
+    'data_inicio',
+  ]);
 });

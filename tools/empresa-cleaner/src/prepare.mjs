@@ -3,6 +3,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCleaner } from './clean.mjs';
+import { resolveEmpresasInput } from './empresas-paths.mjs';
 
 const toolDir = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -50,7 +51,7 @@ async function main() {
   }
 
   const state = normalizeState(args.state);
-  const input = resolve(args.input ?? join(toolDir, 'data', 'raw', state));
+  const input = resolve(args.input ?? resolveEmpresasInput(state));
   const output = resolve(args.output ?? join(toolDir, 'data', 'output', state));
   const report = await runCleaner({ input, output });
 

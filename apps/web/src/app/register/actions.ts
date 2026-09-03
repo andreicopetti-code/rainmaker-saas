@@ -59,6 +59,10 @@ export async function registerAccount(
   });
 
   if (error) {
+    const msg = String(error.message ?? '').trim();
+    if (!msg || msg === '{}' || error.status === 500 || error.status === 503) {
+      return { error: 'O sistema está temporariamente indisponível. Tente novamente em alguns minutos.' };
+    }
     return { error: mapRegisterError(error.message) };
   }
 

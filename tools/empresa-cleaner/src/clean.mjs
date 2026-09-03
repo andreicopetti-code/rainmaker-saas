@@ -20,12 +20,9 @@ export const OUTPUT_COLUMNS = [
   'email',
   'cnae_codigo',
   'cnae_descricao',
-  'regime_tributario',
   'regime_historico',
-  'faturamento_est',
-  'funcionarios',
   'socios',
-  'total_dividas',
+  'data_inicio',
 ];
 
 const HEADER_ALIASES = {
@@ -48,8 +45,18 @@ const HEADER_ALIASES = {
   cnae_descricao: ['texto cnae principal', 'descricao cnae', 'descrição cnae', 'atividade principal'],
   regime_tributario: ['regime tributario', 'regime tributário', 'regime'],
   regime_historico: ['regime historico', 'regime histórico', 'historico regime'],
-  faturamento_est: ['faturamento estimado', 'faturamento', 'receita estimada'],
-  funcionarios: ['quadro de funcionarios', 'quadro de funcionários', 'funcionarios', 'funcionários'],
+  data_inicio: [
+    'data inicio',
+    'data início',
+    'data de inicio',
+    'data de início',
+    'data abertura',
+    'data de abertura',
+    'inicio atividade',
+    'início atividade',
+    'inicio das atividades',
+    'início das atividades',
+  ],
   socio_tipo: ['identificador socio', 'identificador sócio', 'tipo socio', 'tipo sócio'],
   socio: ['nome do socio', 'nome do sócio', 'socios', 'sócios', 'qsa'],
   socio_cargo: [
@@ -62,7 +69,6 @@ const HEADER_ALIASES = {
     'qualificacao qsa',
     'qualificação qsa',
   ],
-  total_dividas: ['total dividas', 'total dívidas', 'dividas', 'dívidas'],
 };
 
 const MAX_PARTNERS_PER_COMPANY = 5;
@@ -144,26 +150,78 @@ function canonicalRegime(value) {
   return matches.size === 1 ? [...matches][0] : null;
 }
 
-export function normalizeRegime(value, existingHistory = null) {
-  const original = compact(value);
-  const suppliedHistory = compact(existingHistory);
-  if (!original) return { current: null, history: suppliedHistory, ambiguous: false };
+/**
+ * Formata histórico de regime sem a palavra "ANO".
+ * Ex.: "ANO 2023 LUCRO REAL, ANO 2024 LUCRO REAL" → "2024 Lucro Real; 2023 Lucro Real"
+ */
+export function formatRegimeHistory(value) {
+  const text = compact(value);
+  if (!text) return null;
 
-  const segments = original.split(/[;|\n]+/).map(compact).filter(Boolean);
-  const dated = segments
-    .map((segment) => ({ segment, year: Number(segment.match(/\b(19|20)\d{2}\b/)?.[0] ?? 0) }))
-    .filter(({ year }) => year > 0)
+  const anoMatches = [...text.matchAll(/\bANO\s+(\d{4})\s+([^,;|]+)/gi)];
+  if (anoMatches.length) {
+    const entries = anoMatches
+      .map((match) => {
+        const year = match[1];
+        const label = canonicalRegime(match[2]) ?? compact(match[2]);
+        return label ? { year: Number(year), text: `${year} - ${label}` } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.year - a.year);
+    const unique = [];
+    const seen = new Set();
+    for (const entry of entries) {
+      if (seen.has(entry.text)) continue;
+      seen.add(entry.text);
+      unique.push(entry.text);
+    }
+    return unique.slice(0, 5).join('; ') || null;
+  }
+
+  const dated = text
+    .split(/[;|,\n]+/)
+    .map(compact)
+    .filter(Boolean)
+    .map((segment) => {
+      const cleaned = segment.replace(/\bANO\s+/gi, '').trim();
+      const year = Number(cleaned.match(/\b(19|20)\d{2}\b/)?.[0] ?? 0);
+      if (!year) return null;
+      const withoutYear = cleaned.replace(/\b(19|20)\d{2}\b/, '').replace(/[-–:]/g, ' ').trim();
+      const label = canonicalRegime(withoutYear) ?? compact(withoutYear);
+      return label ? { year, text: `${year} - ${label}` } : null;
+    })
+    .filter(Boolean)
     .sort((a, b) => b.year - a.year);
 
   if (dated.length > 0) {
-    const current = canonicalRegime(dated[0].segment);
-    return { current, history: suppliedHistory ?? original, ambiguous: !current };
+    return dated.slice(0, 5).map((entry) => entry.text).join('; ');
+  }
+
+  const withoutAno = text.replace(/\bANO\s+/gi, '').replace(/\s+/g, ' ').trim();
+  const current = canonicalRegime(withoutAno);
+  return current ?? (withoutAno || null);
+}
+
+export function normalizeRegime(value, existingHistory = null) {
+  const original = compact(value);
+  const suppliedHistory = formatRegimeHistory(existingHistory);
+  if (!original) return { current: null, history: suppliedHistory, ambiguous: false };
+
+  const formattedOriginal = formatRegimeHistory(original);
+  const yearMatch = formattedOriginal?.match(/^(\d{4})\s+(.+)$/);
+  if (yearMatch) {
+    const current = canonicalRegime(yearMatch[2]) ?? compact(yearMatch[2]);
+    return {
+      current,
+      history: suppliedHistory ?? formattedOriginal,
+      ambiguous: !current,
+    };
   }
 
   const current = canonicalRegime(original);
   return {
     current,
-    history: suppliedHistory ?? (current ? null : original),
+    history: suppliedHistory ?? formattedOriginal ?? (current ? null : original),
     ambiguous: !current,
   };
 }
@@ -308,12 +366,9 @@ function normalizeRecord(raw, headerMap, context, stats) {
     email,
     cnae_codigo: digitsOnly(get('cnae_codigo')),
     cnae_descricao: compact(get('cnae_descricao')),
-    regime_tributario: regime.current,
-    regime_historico: regime.history,
-    faturamento_est: compact(get('faturamento_est')),
-    funcionarios: compact(get('funcionarios')),
+    regime_historico: regime.history ?? (regime.current ? regime.current : null),
     socios: selectedPartners.map(({ name }) => name).join('; ') || null,
-    total_dividas: formatDebt(get('total_dividas')),
+    data_inicio: compact(get('data_inicio')),
   };
 
   return { row, partners };
@@ -352,9 +407,6 @@ function mergeCompany(companies, incoming, stats) {
     }
   }
 
-  const preferredDebt = parseDebtAmount(preferred.total_dividas) ?? -1;
-  const fallbackDebt = parseDebtAmount(fallback.total_dividas) ?? -1;
-  merged.total_dividas = preferredDebt >= fallbackDebt ? preferred.total_dividas : fallback.total_dividas;
   existing.row = merged;
   existing.score = Math.max(existing.score, incomingScore, completeness(merged));
 }
@@ -513,7 +565,6 @@ export async function runCleaner({ input, output } = {}) {
     })
     .sort((a, b) => a.cnpj.localeCompare(b.cnpj));
 
-  const debtAmounts = cleanRows.map((row) => parseDebtAmount(row.total_dividas)).filter((amount) => amount > 0);
   const report = {
     generatedAt: new Date().toISOString(),
     mode: 'dry-run; nenhum dado foi enviado ao Supabase',
@@ -533,10 +584,6 @@ export async function runCleaner({ input, output } = {}) {
       managerialPartnersSelected: stats.managerialPartnersSelected,
       filesWithRoleColumn: [...stats.partnerRoleFiles].sort(),
       fallbackWhenRoleMissing: 'ordem original da fonte',
-    },
-    debt: {
-      companiesWithDebt: debtAmounts.length,
-      totalBRL: Number(debtAmounts.reduce((sum, amount) => sum + amount, 0).toFixed(2)),
     },
     columns: OUTPUT_COLUMNS,
   };

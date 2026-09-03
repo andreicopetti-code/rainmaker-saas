@@ -80,9 +80,16 @@ async function tryFill(page, selector, value) {
  * @param {import('playwright').Page} page
  */
 async function dismissCookies(page) {
-  const dismiss = page.getByRole('button', { name: /dismiss cookie/i });
-  if (await dismiss.count()) {
-    await dismiss.first().click({ timeout: 3000 }).catch(() => {});
+  try {
+    const dismiss = page.getByRole('button', { name: /dismiss cookie/i });
+    if (await dismiss.count()) {
+      await dismiss.first().click({ timeout: 3000 }).catch(() => {});
+    }
+  } catch (err) {
+    if (String(err.message).includes('closed')) {
+      throw new Error('Browser foi fechado — mantenha a janela aberta até o script terminar');
+    }
+    throw err;
   }
 }
 
@@ -257,11 +264,28 @@ async function manualLoginFlow(page, cfg, context) {
   }
 
   console.log('\n🤖  Login manual (captcha):');
-  console.log('   1. No browser: preencha email/senha + "Não sou um robô" + Acessar');
-  console.log('   2. Aguarde entrar no sistema (não precisa abrir a URL de resultados)');
-  console.log('   3. Volte aqui e pressione ENTER\n');
+  console.log('   1. No browser: email/senha + "Não sou um robô" + Acessar');
+  console.log('   2. O script continua sozinho ao detectar o login (ou pressione ENTER)\n');
 
-  await waitForEnter('Pronto? Pressione ENTER para salvar a sessão...');
+  const deadline = Date.now() + 15 * 60 * 1000;
+  let detected = false;
+
+  while (Date.now() < deadline) {
+    if (!isLoginPage(page)) {
+      await page.waitForTimeout(2000);
+      if (!isLoginPage(page)) {
+        detected = true;
+        break;
+      }
+    }
+    await page.waitForTimeout(2000);
+  }
+
+  if (!detected && isLoginPage(page)) {
+    await waitForEnter('Login concluído? Pressione ENTER para salvar a sessão...');
+  } else if (detected) {
+    console.log('  ✓  Login detectado automaticamente');
+  }
 
   await context.storageState({ path: AUTH_STATE_PATH });
   const url = page.url();
@@ -273,12 +297,28 @@ async function manualLoginFlow(page, cfg, context) {
 /** Abre URL sem esperas longas (modo search-url). */
 async function fastOpenUrl(page, url) {
   console.log('  🌐  Abrindo browser...');
-  try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  } catch {
-    console.log('  ⚠️  Página lenta — continue no browser');
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    } catch {
+      console.log(`  ⚠️  Página lenta (tentativa ${attempt}/${maxAttempts})...`);
+    }
+
+    const current = page.url();
+    if (current && current !== 'about:blank') {
+      console.log(`  📍  ${current.slice(0, 90)}`);
+      return;
+    }
+
+    if (attempt < maxAttempts) {
+      await page.waitForTimeout(3000);
+    }
   }
-  console.log(`  📍  ${page.url().slice(0, 90)}`);
+
+  throw new Error(
+    'URL não carregou (about:blank) — não feche o browser; rode npm run empresaqui:save-session e tente de novo',
+  );
 }
 
 /** @param {string} dir */
@@ -327,9 +367,12 @@ function stageCsvFiles(files, outDir) {
 }
 
 /**
- * Export automático — blocos definidos pelos links do painel (não pela contagem).
+ * Export automático — baixa todos os blocos do painel EXPORTAR (ex.: SP com 80+ partes).
+ * @param {{ resume?: boolean, startPart?: number, endPart?: number }} exportOpts
  */
-async function automatedBlockExport(page, cfg, context, targetUrl, destPath) {
+async function automatedBlockExport(page, cfg, context, targetUrl, destPath, exportOpts = {}) {
+  const resume = exportOpts.resume !== false;
+
   await fastOpenUrl(page, targetUrl);
   await dismissCookies(page);
 
@@ -339,19 +382,17 @@ async function automatedBlockExport(page, cfg, context, targetUrl, destPath) {
     await fastOpenUrl(page, targetUrl);
   }
 
-  await waitForExportButton(page);
+  await waitForExportButton(page, destPath);
   const count = await readResultCount(page);
-  console.log(`  📊  Resultados: ${count?.toLocaleString('pt-BR') ?? '?'}`);
-  if (count && count > 200_000) {
-    console.log('  ⚠️  Contagem alta — blocos serão lidos do menu EXPORTAR (não da contagem)');
-  }
+  const need = expectedCsvPartCount(count);
+  console.log(`  📊  Resultados: ${count?.toLocaleString('pt-BR') ?? '?'} → ~${need} parte(s)`);
 
   await clickExportarButton(page);
-  let labels = await resolveCsvLabelsFromPanel(page);
+  let labels = await scrapeAllCsvLabelsFromPanel(page);
   if (!labels.length) {
     await page.waitForTimeout(2000);
     await clickExportarButton(page);
-    labels = await resolveCsvLabelsFromPanel(page);
+    labels = await scrapeAllCsvLabelsFromPanel(page);
   }
   if (!labels.length) {
     await saveDebugScreenshot(page, destPath);
@@ -359,25 +400,57 @@ async function automatedBlockExport(page, cfg, context, targetUrl, destPath) {
     throw new Error('Links "BAIXAR CSV DE..." não apareceram após clicar EXPORTAR');
   }
 
-  console.log(`  📤  Baixando ${labels.length} bloco(s):`);
-  for (const l of labels) console.log(`      • ${l}`);
+  if (count && labels.length > need) {
+    console.log(`  ℹ️  Painel com ${labels.length} links — baixando ${need} parte(s) necessárias`);
+    labels = labels.slice(0, need);
+  } else if (count && labels.length < need) {
+    console.log(`  ⚠️  Painel mostrou ${labels.length}/${need} links — seguindo com os disponíveis`);
+  }
+
+  const startIdx = Math.max(0, exportOpts.startPart ?? 0);
+  const endIdx = Math.min(labels.length, exportOpts.endPart ?? labels.length);
+  const batch = labels.slice(startIdx, endIdx);
+
+  console.log(`  📤  Baixando blocos ${startIdx + 1}–${endIdx} de ${labels.length}:`);
+  if (batch.length <= 12) {
+    for (const l of batch) console.log(`      • ${l}`);
+  } else {
+    console.log(`      • ${batch[0]} … ${batch[batch.length - 1]} (${batch.length} arquivos)`);
+  }
 
   /** @type {string[]} */
   const files = [];
-  for (let i = 0; i < labels.length; i++) {
-    if (i > 0) {
-      await clickExportarButton(page);
-      const fresh = await resolveCsvLabelsFromPanel(page);
-      if (fresh[i]) labels[i] = fresh[i];
-      else if (fresh.length > 1) labels[i] = fresh[1];
+  for (let i = 0; i < batch.length; i++) {
+    const globalIndex = startIdx + i;
+    const label = batch[i];
+
+    if (resume) {
+      const existing = existingPartFile(destPath, globalIndex);
+      if (existing) {
+        console.log(`  ⏭️  Bloco ${globalIndex + 1}/${labels.length} já baixado — ${basename(existing)}`);
+        files.push(existing);
+        continue;
+      }
     }
-    const link = page.getByText(new RegExp(labels[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')).first();
-    await link.waitFor({ state: 'visible', timeout: 20000 });
-    files.push(await downloadCsvByLocator(page, link, cfg, destPath, i));
+
+    if (i > 0) {
+      await page.waitForTimeout(cfg.timeouts.betweenExportsMs ?? 15000);
+    }
+
+    await clickExportarButton(page);
+    await page.waitForTimeout(1200);
+
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const link = page.getByText(new RegExp(escaped, 'i')).first();
+    await link.waitFor({ state: 'visible', timeout: 30000 });
+    await link.scrollIntoViewIfNeeded();
+
+    console.log(`  📥  [${globalIndex + 1}/${labels.length}] ${label}`);
+    files.push(await downloadCsvByLocator(page, link, cfg, destPath, globalIndex));
+    await context.storageState({ path: AUTH_STATE_PATH });
     await page.waitForTimeout(2000);
   }
 
-  await context.storageState({ path: AUTH_STATE_PATH });
   return files.length === 1 ? files[0] : files;
 }
 
@@ -388,10 +461,31 @@ function exportButtonLocator(page) {
     .first();
 }
 
-async function waitForExportButton(page) {
-  console.log('  ⏳  Aguardando botão EXPORTAR...');
-  await exportButtonLocator(page).waitFor({ state: 'visible', timeout: 180000 });
-  console.log('  ✓  EXPORTAR visível');
+async function waitForExportButton(page, destPath) {
+  console.log('  ⏳  Aguardando resultados e botão EXPORTAR (SP pode levar vários minutos)...');
+  const deadline = Date.now() + 10 * 60 * 1000;
+
+  while (Date.now() < deadline) {
+    const status = await page.evaluate(() => {
+      const text = document.body?.innerText ?? '';
+      const hasResults = /sua pesquisa gerou\s*[\d.]+\s*resultados/i.test(text);
+      const hasExport = [...document.querySelectorAll('button')]
+        .some((b) => /^exportar/i.test((b.textContent ?? '').trim()));
+      return { hasResults, hasExport };
+    });
+
+    if (status.hasResults && status.hasExport) {
+      console.log('  ✓  EXPORTAR visível');
+      return;
+    }
+    if (status.hasResults) {
+      process.stdout.write('.');
+    }
+    await page.waitForTimeout(5000);
+  }
+
+  if (destPath) await saveDebugScreenshot(page, destPath);
+  throw new Error('EXPORTAR não apareceu — aguarde a pesquisa carregar no browser ou recarregue a página');
 }
 
 async function clickExportarButton(page) {
@@ -824,6 +918,70 @@ function expectedCsvPartCount(count) {
   return Math.ceil(count / 100_000);
 }
 
+/** @param {string} destPath @param {number} partIndex */
+function existingPartFile(destPath, partIndex) {
+  const base = destPath.replace(/\.csv$/i, `-part${partIndex + 1}`);
+  for (const ext of ['csv', 'xlsx', 'xls']) {
+    const p = `${base}.${ext}`;
+    if (existsSync(p) && statSync(p).size > 500) return p;
+  }
+  return null;
+}
+
+/**
+ * Coleta todos os links "BAIXAR CSV DE X A Y MIL" do painel EXPORTAR (com scroll).
+ * @param {import('playwright').Page} page
+ */
+async function scrapeAllCsvLabelsFromPanel(page) {
+  const panel = page.locator('div, section, form, aside').filter({
+    hasText: /personalizar colunas|download csv em partes de 100 mil/i,
+  }).first();
+
+  if (await panel.count()) {
+    await panel.evaluate(async (el) => {
+      const step = Math.max(100, Math.floor(el.scrollHeight / 12));
+      for (let y = 0; y <= el.scrollHeight; y += step) {
+        el.scrollTop = y;
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      el.scrollTop = 0;
+    });
+    await page.waitForTimeout(400);
+  }
+
+  return page.evaluate(() => {
+    const lineRe = /^BAIXAR CSV DE (\d+) A ([\d ]+) MIL$/i;
+
+    function findPanel() {
+      for (const el of document.querySelectorAll('div, section, form, aside, ul')) {
+        const head = (el.innerText || '').slice(0, 900);
+        if (/PERSONALIZAR COLUNAS|DOWNLOAD CSV EM PARTES DE 100 MIL/i.test(head)) {
+          return el;
+        }
+      }
+      return document.body;
+    }
+
+    const root = findPanel();
+    /** @type {Map<number, string>} */
+    const byStart = new Map();
+
+    for (const el of root.querySelectorAll('a, button, span, li, label')) {
+      const raw = (el.innerText || '').trim().replace(/\s+/g, ' ');
+      const m = raw.match(lineRe);
+      if (!m) continue;
+      const st = window.getComputedStyle(el);
+      if (st.display === 'none' || st.visibility === 'hidden') continue;
+      const start = parseInt(m[1], 10);
+      byStart.set(start, m[0].toUpperCase());
+    }
+
+    return [...byStart.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, label]) => label);
+  });
+}
+
 /** @param {import('playwright').Page} page */
 async function isExportMenuOpen(page) {
   const labels = await scrapeVisibleExportLabels(page);
@@ -1213,6 +1371,9 @@ async function triggerExport(page, cfg, destPath, resultCount) {
  *   saveSessionOnly?: boolean,
  *   autoExport?: boolean,
  *   manualDownload?: boolean,
+ *   resumeDownloads?: boolean,
+ *   startPart?: number,
+ *   endPart?: number,
  * }} opts
  * @returns {Promise<{ file: string | string[], count: number | null }>}
  */
@@ -1270,7 +1431,11 @@ export async function runDownload(partition, opts) {
         return { file: saved, count: await readResultCount(page) };
       }
 
-      const saved = await automatedBlockExport(page, cfg, context, opts.searchUrl, destPath);
+      const saved = await automatedBlockExport(page, cfg, context, opts.searchUrl, destPath, {
+        resume: opts.resumeDownloads !== false,
+        startPart: opts.startPart,
+        endPart: opts.endPart,
+      });
       return { file: saved, count: await readResultCount(page) };
     }
 

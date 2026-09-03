@@ -45,6 +45,28 @@ A URL já traz UF, municípios e demais filtros — **não precisa** de `--munic
 
 Na 1ª vez (sem sessão salva), o script abre o login → faça captcha → ENTER no terminal → export automático.
 
+### SP — download em massa (80+ CSVs)
+
+Com a pesquisa de SP aberta no browser (8M+ resultados), copie a URL e rode:
+
+```powershell
+# 1) Salvar sessão (1x, com captcha)
+npm run empresaqui:save-session
+
+# 2) Download automático de todos os blocos (um após o outro)
+npm run empresaqui:sync -- --search-url "COLE_A_URL_DA_PESQUISA_SP" --download-only
+
+# Retomar se interromper (pula arquivos já baixados)
+npm run empresaqui:sync -- --search-url "COLE_A_URL" --download-only
+
+# Baixar só um intervalo (ex.: blocos 1–5)
+npm run empresaqui:sync -- --search-url "COLE_A_URL" --download-only --start-part 1 --end-part 5
+```
+
+Arquivos salvos em `scripts/empresaqui-sync/downloads/{data}/SP/` como `*-part1.csv`, `*-part2.csv`, …
+
+Confira no painel EXPORTAR: **Enviar CSV por E-mail = NÃO**.
+
 ### Opção B — CSV já baixado
 
 ```powershell

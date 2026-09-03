@@ -6,18 +6,34 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { AuthBrandMark } from '@/components/auth/AuthBrandMark';
 
-function mapAuthError(message: string): string {
-  const m = message.toLowerCase();
+function normalizeAuthMessage(message: unknown, status?: number): string {
+  const text = String(message ?? '').trim();
+  if (!text || text === '{}') {
+    if (status === 500 || status === 503) {
+      return 'O sistema está temporariamente indisponível. Tente novamente em alguns minutos.';
+    }
+    return 'Não foi possível conectar ao servidor. Verifique sua internet e tente de novo.';
+  }
+  return text;
+}
+
+function mapAuthError(message: unknown, status?: number): string {
+  const m = normalizeAuthMessage(message, status).toLowerCase();
   if (m.includes('invalid login credentials')) {
     return 'E-mail ou senha incorretos. Se ainda não criou conta, use "Criar conta" abaixo.';
   }
   if (m.includes('email not confirmed')) {
     return 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada).';
   }
-  if (m.includes('fetch') || m.includes('network')) {
-    return 'Não foi possível conectar ao servidor. Verifique sua internet e tente de novo.';
+  if (
+    m.includes('fetch') ||
+    m.includes('network') ||
+    m.includes('database error') ||
+    m.includes('temporariamente indisponível')
+  ) {
+    return 'O sistema está temporariamente indisponível. Tente novamente em alguns minutos.';
   }
-  return message;
+  return normalizeAuthMessage(message, status);
 }
 
 type Props = {
@@ -46,7 +62,7 @@ export function LoginForm({ inviteOrganizationName = null }: Props) {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
-        setError(mapAuthError(authError.message));
+        setError(mapAuthError(authError.message, authError.status));
         return;
       }
 

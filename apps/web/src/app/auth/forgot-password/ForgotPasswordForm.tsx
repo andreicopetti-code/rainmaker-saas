@@ -5,15 +5,31 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { AuthBrandMark } from '@/components/auth/AuthBrandMark';
 
-function mapResetError(message: string): string {
-  const m = message.toLowerCase();
+function normalizeAuthMessage(message: unknown, status?: number): string {
+  const text = String(message ?? '').trim();
+  if (!text || text === '{}') {
+    if (status === 500 || status === 503) {
+      return 'O sistema está temporariamente indisponível. Tente novamente em alguns minutos.';
+    }
+    return 'Não foi possível conectar ao servidor. Verifique sua internet.';
+  }
+  return text;
+}
+
+function mapResetError(message: unknown, status?: number): string {
+  const m = normalizeAuthMessage(message, status).toLowerCase();
   if (m.includes('rate limit')) {
     return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.';
   }
-  if (m.includes('fetch') || m.includes('network')) {
-    return 'Não foi possível conectar ao servidor. Verifique sua internet.';
+  if (
+    m.includes('fetch') ||
+    m.includes('network') ||
+    m.includes('database error') ||
+    m.includes('temporariamente indisponível')
+  ) {
+    return 'O sistema está temporariamente indisponível. Tente novamente em alguns minutos.';
   }
-  return message;
+  return normalizeAuthMessage(message, status);
 }
 
 export function ForgotPasswordForm() {
@@ -32,7 +48,7 @@ export function ForgotPasswordForm() {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
     if (resetError) {
-      setError(mapResetError(resetError.message));
+      setError(mapResetError(resetError.message, resetError.status));
       setLoading(false);
       return;
     }

@@ -15,7 +15,9 @@
     "test:member-limits": "node scripts/test-member-limits.mjs",
     "empresaqui:sync": "node scripts/empresaqui-sync/sync.mjs",
     "empresaqui:ingest": "node scripts/empresaqui-sync/ingest/upsert-from-dir.mjs",
+    "empresaqui:delete-estado": "node scripts/empresaqui-sync/ingest/delete-by-estado.mjs",
     "empresaqui:save-session": "node scripts/empresaqui-sync/sync.mjs --save-session",
+    "empresaqui:download": "node scripts/empresaqui-sync/sync.mjs --download-only",
     "empresas:clean": "npm --prefix tools/empresa-cleaner run clean --",
     "empresas:prepare": "npm --prefix tools/empresa-cleaner run prepare --"
   },

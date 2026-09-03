@@ -69,6 +69,8 @@ function sortRegimeEntries(entries: RegimeEntry[]): RegimeEntry[] {
   return [...entries].sort((a, b) => Number(b.year) - Number(a.year));
 }
 
+const REGIME_HISTORY_YEARS = 5;
+
 export function parseRegimeHistorico(raw: string | null): RegimeEntry[] | string | null {
   if (!raw?.trim()) return null;
 
@@ -77,23 +79,24 @@ export function parseRegimeHistorico(raw: string | null): RegimeEntry[] | string
     const parsed = anoMatches
       .map((m) => ({ year: m[1], val: normalizeRegimeVal(m[2]) }))
       .filter((e) => e.val);
-    if (parsed.length) return sortRegimeEntries(parsed);
+    if (parsed.length) return sortRegimeEntries(parsed).slice(0, REGIME_HISTORY_YEARS);
   }
 
   const parts = raw.split(/[;|/\n,]+/).map((s) => s.trim()).filter(Boolean);
   const parsed = parts
     .map((p) => {
-      const m = p.match(/(\d{4})\s*[-–:]\s*(.+)/);
+      const m = p.match(/^(\d{4})\s*[-–:]?\s+(.+)$/);
       return m ? { year: m[1], val: normalizeRegimeVal(m[2]) } : null;
     })
     .filter(Boolean) as RegimeEntry[];
-  if (parsed.length) return sortRegimeEntries(parsed);
+  if (parsed.length) return sortRegimeEntries(parsed).slice(0, REGIME_HISTORY_YEARS);
 
   return raw.trim();
 }
 
 /**
  * Ficha completa: timeline só com 2+ anos; caso contrário, só o regime atual.
+ * Histórico limitado aos últimos 5 anos quando disponível.
  */
 export function resolveRegimeDisplay(
   regimeTributario: string | null,
