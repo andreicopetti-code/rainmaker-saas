@@ -1,8 +1,8 @@
 {
-  "name": "ceo-brain-saas",
+  "name": "rainmaker-saas",
   "private": true,
   "version": "0.1.0",
-  "description": "CEO Brain — SaaS de gestão de vendas",
+  "description": "RainMaker — CRM comercial com IA, CNPJ e equipes",
   "scripts": {
     "dev": "npm run dev -w @ceo-brain/web",
     "build": "npm run build -w @ceo-brain/web",
